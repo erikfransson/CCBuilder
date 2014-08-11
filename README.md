@@ -1,0 +1,4 @@
+CCBuilder
+=========
+
+Synthetic structure generation
