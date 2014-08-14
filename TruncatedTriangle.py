@@ -20,7 +20,7 @@ class TruncatedTriangle:
 		self.circumcircle = np.sqrt((self.a_long/2.)**2 + (self.H/3.)**2 + (self.t/2.)**2)
 		
 		self.rot_matrix = rot_matrix
-		self.rot_matrix_tr = rot_matrix.transpose()
+		self.rot_matrix_tr = np.ascontiguousarray(rot_matrix.transpose())
 		angle, axis = GeometryTools.rotmatrix_to_axisangle(rot_matrix)
 		self.rot_axis = axis
 		self.rot_angle = angle
@@ -69,8 +69,6 @@ class TruncatedTriangle:
 		
 		# Rotate to coordinates of the triangle as used above
 		r0 = np.dot(self.rot_matrix_tr, r0)
-		
-		#print r0
 		
 		# the triangle is within the x-y plane.
 		if self.r > 0:

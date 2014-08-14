@@ -85,7 +85,7 @@ def random_rotation():
 	
 	r2 = np.cross(r0, r1)
 	
-	return np.array([r0,r1,r2]).transpose()
+	return np.ascontiguousarray(np.array([r0,r1,r2]).transpose())
 		
 
 #def misorientation2(R):
