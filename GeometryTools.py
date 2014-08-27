@@ -36,6 +36,7 @@ def rotmatrix_to_axisangle(R):
 
 def rotmatrix_to_euler(R):
 	puny = 1E-11
+	small = 1E-9
 	
 	cos_theta = R[2,2]
 	sin_theta_sq = 1 - cos_theta**2
@@ -52,7 +53,7 @@ def rotmatrix_to_euler(R):
 	dum11 = R[1,1] + (R[0,2]*R[2,0] + R[1,2]*R[2,1]*R[2,2]) / sin_theta_sq
 	
 	dum = np.sqrt(dum00**2 + dum01**2 + dum10**2 + dum11**2)
-	if dum > puny:
+	if dum > small:
 		raise ValueError
 	
 	theta = np.arccos(cos_theta)

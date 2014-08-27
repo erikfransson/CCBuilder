@@ -39,21 +39,15 @@ def prepare_triangles(vol_frac_goal, L):
 	
 	return trunc_triangles
 
-def make_neighbors(trunc_triangles, L):
-	x0 = np.ndarray.flatten(np.array([trunc_triangle.midpoint for trunc_triangle in trunc_triangles]))
-	circumcircles = np.array([trunc_triangle.circumcircle for trunc_triangle in trunc_triangles])
-	volumes = np.array([trunc_triangle.volume for trunc_triangle in trunc_triangles])
-	
+def make_neighbors(L, trunc_triangles, optimize=True):
 	N = len(trunc_triangles)
-	print "Optimizing midpoints of " + np.str(N) + " grains."
-	#result = scipy.optimize.minimize(_sum_potential3, x0, args=(L, circumcircles, volumes), method='BFGS', jac=_sum_potential3_grad, tol=1E-2, options = {'disp' : True})
-	result = scipy.optimize.minimize(ccb_c.sum_potential3_and_grad, x0, args=(L, circumcircles, volumes), method='BFGS', jac=True, tol=1E-2, options = {'disp' : True})
+	if optimize:
+		optimize_midpoints(L, trunc_triangles)
 	
 	trunc_triangles_list = []
 	neighbors = []
 	
 	for i in range(N):
-		trunc_triangles[i].set_midpoint(np.mod(result.x[3*i:3*i+3], L))
 		trunc_triangles_i = []
 		trunc_triangles_i.append(trunc_triangles[i])
 		trunc_triangles_i.extend(trunc_triangles[i].find_periodic_copies(L))
@@ -61,6 +55,20 @@ def make_neighbors(trunc_triangles, L):
 		trunc_triangles_list.append(trunc_triangles_i)
 	
 	return trunc_triangles_list, neighbors
+
+def optimize_midpoints(L, trunc_triangles):
+	N = len(trunc_triangles)
+	
+	print "Optimizing midpoints of " + np.str(N) + " grains."
+	
+	x0 = np.ndarray.flatten(np.array([trunc_triangle.midpoint for trunc_triangle in trunc_triangles]))
+	circumcircles = np.array([trunc_triangle.circumcircle for trunc_triangle in trunc_triangles])
+	volumes = np.array([trunc_triangle.volume for trunc_triangle in trunc_triangles])
+	
+	result = scipy.optimize.minimize(ccb_c.sum_potential3_and_grad, x0, args=(L, circumcircles, volumes), method='BFGS', jac=True, tol=1E-2, options = {'disp' : True})
+	
+	for i in range(N):
+		trunc_triangles[i].set_midpoint(np.mod(result.x[3*i:3*i+3], L))
 
 def _update_neighbors(trunc_triangles, trunc_triangles_list, neighbors):
 	nb = []
@@ -74,125 +82,6 @@ def _update_neighbors(trunc_triangles, trunc_triangles_list, neighbors):
 		nb.append(nb_i)
 	neighbors.append(nb)
 
-# r is flattened 3*N
-#def _sum_potential3(r, L, circumcircle, volume):
-	#U = 0
-	#N = len(r) / 3
-	#r %= L
-	
-	#xL = np.array([L,0,0])
-	#yL = np.array([0,L,0])
-	#zL = np.array([0,0,L])
-	
-	#for i in range(N):
-		#r_i = r[3*i:3*i+3]
-		#for j in range(i+1, N):
-			#r_j = r[3*j:3*j+3]
-			#r_0 = circumcircle[i] + circumcircle[j]
-			#for ix in range(-1,2):
-				#for iy in range(-1,2):
-					#for iz in range(-1,2):
-						#r_ij = r_j + ix*xL + iy*yL + iz*zL - r_i
-						#r_ij_norm = (r_ij[0]**2 + r_ij[1]**2 + r_ij[2]**2)**0.5
-						#if r_ij_norm < r_0:
-							#U += volume[i]*volume[j]*((r_ij_norm - r_0) / r_0)**2
-	
-	#return U
-
-## r is flattened 3*N
-#def _sum_potential3_grad(r, L, circumcircle, volume):
-	#N = len(r) / 3
-	#U_grad = np.zeros(3*N)
-	#r %= L
-	
-	#xL = np.array([L,0,0])
-	#yL = np.array([0,L,0])
-	#zL = np.array([0,0,L])
-	
-	#for i in range(N):
-		#r_i = r[3*i:3*i+3]
-		#for j in range(i+1, N):
-			#r_j = r[3*j:3*j+3]
-			#r_0 = circumcircle[i] + circumcircle[j]
-			#for ix in range(-1,2):
-				#for iy in range(-1,2):
-					#for iz in range(-1,2):
-						#r_ij = r_j + ix*xL + iy*yL + iz*zL - r_i
-						#r_ij_norm = (r_ij[0]**2 + r_ij[1]**2 + r_ij[2]**2)**0.5
-						#if r_ij_norm < r_0:
-							#grad = volume[i]*volume[j]*2/r_0**2 * (1 - r_0/r_ij_norm) * r_ij
-							#U_grad[3*i:3*i+3] -= grad
-							#U_grad[3*j:3*j+3] += grad
-	
-	#return U_grad
-
-def populate_voxels(L, M, trunc_triangles_list):
-	print "Populating voxels"
-	
-	grain_ids = np.ones(M**3, dtype='int32')
-	phases = np.ones(M**3, dtype='int32')
-	good_voxels = np.ones(M**3, dtype='uint8')
-	euler_angles = np.zeros((M**3, 3), dtype='float32')
-	phase_volumes = np.array([M**3, 0])
-	
-	delta_x = L/M
-	
-	N = len(trunc_triangles_list)
-	grain_volumes = np.zeros(N)
-	
-	for i, trunc_triangles in enumerate(trunc_triangles_list):
-		print "Grain " + np.str(i) + " of " + np.str(N)
-		for j, tr_tri in enumerate(trunc_triangles):
-			min_ix = max(0, int(M*tr_tri.min_x/L))
-			max_ix = min(M-1, int(M*tr_tri.max_x/L))
-			min_iy = max(0, int(M*tr_tri.min_y/L))
-			max_iy = min(M-1, int(M*tr_tri.max_y/L))
-			min_iz = max(0, int(M*tr_tri.min_z/L))
-			max_iz = min(M-1, int(M*tr_tri.max_z/L))
-			
-			# grain ids: binder 1, WC 2+i where i=0,...
-			# phases: binder 1, WC 2
-			for iz in range(min_iz, max_iz+1):
-				for iy in range(min_iy, max_iy+1):
-					for ix in range(min_ix, max_ix+1):
-						if grain_ids[ix + iy*M + iz*M**2] == 1 and tr_tri.inside([delta_x*(0.5+ix), delta_x*(0.5+iy), delta_x*(0.5+iz)]):
-							grain_ids[ix + iy*M + iz*M**2] = i+2
-							phases[ix + iy*M + iz*M**2] = 2
-							euler_angles[ix + iy*M + iz*M**2,:] = tr_tri.euler_angles
-							phase_volumes[0] -= 1
-							phase_volumes[1] += 1
-							grain_volumes[i] += 1
-	
-	return grain_ids, phases, good_voxels, euler_angles, phase_volumes, grain_volumes
-
-# I do not care about this method here. See cython version instead
-#def calc_surface_prop(M, grain_ids):
-	#print "Calculating surface properties"
-	
-	#surface_voxels = np.zeros(M**3, dtype='int8')
-	#gb_voxels = np.zeros(M**3, dtype='int8')
-	#interface_voxels = np.zeros(M**3, dtype='int8')
-	
-	#for iz in range(M):
-		#for iy in range(M):
-			#for ix in range(M):
-				#index = ix + iy*M + iz*M**2
-				#grain_id = grain_ids[index]
-				#if grain_id > 1: # i.e. WC
-					## right, left, forward, backward, up, down
-					#nb_indices = [(ix+1)%M + iy*M + iz*M**2, (ix-1)%M + iy*M + iz*M**2, ix + ((iy+1)%M)*M + iz*M**2, ix + ((iy-1)%M)*M + iz*M**2, ix + iy*M + ((iz+1)%M)*M**2, ix + iy*M + ((iz-1)%M)*M**2]
-					
-					#for nb_index in nb_indices:
-						#nb_id = grain_ids[nb_index]
-						#if nb_id != grain_id:
-							#surface_voxels[index] += 1
-							#if nb_id == 1:
-								#interface_voxels[index] += 1
-							#else:
-								#gb_voxels[index] += 1
-	
-	#return surface_voxels, gb_voxels, interface_voxels
-
 def mass_fraction(vol_frac):
 	density_WC = 15.63 # g/cm3
 	density_Co = 8.90 # g/cm3
@@ -201,7 +90,7 @@ def mass_fraction(vol_frac):
 def volume_to_eq_d(volume):
 	return 2*np.power(3*volume/(4*np.pi), 1/3.)
 
-def write_hdf5(filename, M, spacing, trunc_triangles_list, grain_ids, phases, good_voxels, euler_angles, surface_voxels=None, gb_voxels=None, interface_voxels=None):
+def write_hdf5(filename, M, spacing, trunc_triangles, grain_ids, phases, good_voxels, euler_angles, surface_voxels=None, gb_voxels=None, interface_voxels=None, overlaps=None):
 	f = h5py.File(filename, "w")
 	
 	grp_voxel_data = f.create_group("VoxelDataContainer")
@@ -255,7 +144,7 @@ def write_hdf5(filename, M, spacing, trunc_triangles_list, grain_ids, phases, go
 	grp_field_data = grp_voxel_data.create_group("FIELD_DATA")
 	grp_field_data.attrs.create("Name", "FieldData", shape=(1,), dtype='S10')
 	
-	phases2 = np.zeros(len(trunc_triangles_list)+2, dtype='int32')
+	phases2 = np.zeros(len(trunc_triangles)+2, dtype='int32')
 	phases2[1] = 1
 	phases2[2:] = 2
 	dset_phases2 = grp_field_data.create_dataset("Phases", (len(phases2),), dtype='int32')
@@ -263,14 +152,14 @@ def write_hdf5(filename, M, spacing, trunc_triangles_list, grain_ids, phases, go
 	dset_phases2.attrs.create("ObjectType", "DataArray<int32_t>", shape=(1,), dtype='S19')
 	dset_phases2[...] = phases2
 	
-	active = np.ones(len(trunc_triangles_list)+2, dtype='uint8')
+	active = np.ones(len(trunc_triangles)+2, dtype='uint8')
 	active[0] = 0
 	dset_active = grp_field_data.create_dataset("Active", (len(active),), dtype='uint8')
 	dset_active.attrs.create("NumComponents", np.array([1]), shape=(1,), dtype='int32')
 	dset_active.attrs.create("ObjectType", "DataArray<bool>", shape=(1,), dtype='S16')
 	dset_active[...] = active
 	
-	euler_angles_t = np.array([trunc_triangle[0].euler_angles for trunc_triangle in trunc_triangles_list])
+	euler_angles_t = np.array([trunc_triangle.euler_angles for trunc_triangle in trunc_triangles])
 	euler_angles2 = np.zeros((len(euler_angles_t)+2, 3))
 	euler_angles2[2:] = euler_angles_t
 	dset_euler_angles2 = grp_field_data.create_dataset("EulerAngles", (len(euler_angles2), 3), dtype='float32')
@@ -296,12 +185,18 @@ def write_hdf5(filename, M, spacing, trunc_triangles_list, grain_ids, phases, go
 		dset_interface_voxels.attrs.create("ObjectType", "DataArray<int8_t>", shape=(1,), dtype='S18')
 		dset_interface_voxels[...] = interface_voxels
 	
+	if overlaps != None:
+		dset_overlaps = grp_cell_data.create_dataset("Overlaps", (M[0]*M[1]*M[2],), dtype='int8')
+		dset_overlaps.attrs.create("NumComponents", np.array([1]), shape=(1,), dtype='int32')
+		dset_overlaps.attrs.create("ObjectType", "DataArray<int8_t>", shape=(1,), dtype='S18')
+		dset_overlaps[...] = overlaps
+	
 	f.close()
 	
 	filename_xdmf = filename.split('.')[0] + ".xdmf"
-	write_xdmf(filename_xdmf, M, spacing, surface_voxels != None, gb_voxels != None, interface_voxels != None)
+	write_xdmf(filename_xdmf, M, spacing, surface_voxels != None, gb_voxels != None, interface_voxels != None, overlaps != None)
 
-def write_xdmf(filename, M, spacing, surface_voxels=False, gb_voxels=False, interface_voxels=False):
+def write_xdmf(filename, M, spacing, surface_voxels=False, gb_voxels=False, interface_voxels=False, overlaps=False):
 	with open(filename, 'w') as f:
 		filename_hdf5 = filename.split('.')[0] + ".hdf5"
 		M_plus1 = [M[0]+1, M[1]+1, M[2]+1]
@@ -358,6 +253,13 @@ def write_xdmf(filename, M, spacing, surface_voxels=False, gb_voxels=False, inte
 			f.write('    <Attribute Name="InterfaceVoxels (Cell)" AttributeType="Scalar" Center="Cell">\n')
 			f.write('      <DataItem Format="HDF" Dimensions="{} {} {} " NumberType="Char" Precision="1" >\n'.format(*M))
 			f.write('        {}:/VoxelDataContainer/CELL_DATA/InterfaceVoxels\n'.format(filename_hdf5))
+			f.write('      </DataItem>\n')
+			f.write('    </Attribute>\n')
+			f.write('\n')
+		if overlaps:
+			f.write('    <Attribute Name="Overlaps (Cell)" AttributeType="Scalar" Center="Cell">\n')
+			f.write('      <DataItem Format="HDF" Dimensions="{} {} {} " NumberType="Char" Precision="1" >\n'.format(*M))
+			f.write('        {}:/VoxelDataContainer/CELL_DATA/Overlaps\n'.format(filename_hdf5))
 			f.write('      </DataItem>\n')
 			f.write('    </Attribute>\n')
 			f.write('\n')

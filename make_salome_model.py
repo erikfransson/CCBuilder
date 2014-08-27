@@ -34,9 +34,7 @@ geompy.addToStudy( OZ, 'OZ' )
 import SalomeStuff as sf, numpy as np
 import cPickle as pickle
 
-#trunc_triangles_list, neighbors = sf.prepare_triangles_5(N, L)
-
-with open('/home/sven/Backed/Microstructure/Code/CCBuilder/trunc_triangles.data', 'rb') as f:
+with open('/home/sven/Backed/Microstructure/Code/testscripts/trunc_triangles_salome.data', 'rb') as f:
 	L = pickle.load(f)
 	trunc_triangles_list = pickle.load(f)
 	neighbors = pickle.load(f)

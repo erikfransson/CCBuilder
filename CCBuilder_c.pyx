@@ -3,14 +3,12 @@
 import cython
 import numpy as np
 cimport numpy as np
-#from cpython cimport bool
+import random
 import TruncatedTriangle
 
-cdef extern from "math.h":
-	double sqrt(double x)
-
-cdef extern from "math.h":
-	double floor(double x)
+from libc.math cimport sqrt, floor, exp
+from libc.stdlib cimport rand, RAND_MAX, srand, malloc, free
+from libc.limits cimport INT_MAX
 
 cdef inline int int_max(int a, int b):
 	return a if a >= b else b
@@ -18,105 +16,54 @@ cdef inline int int_max(int a, int b):
 cdef inline int int_min(int a, int b):
 	return a if a <= b else b
 
+cdef inline double double_max(double a, double b):
+	return a if a >= b else b
+
 cdef inline double mod(double x1, double x2):
 	return x1 - floor(x1 / x2) * x2
 
+cdef inline double random_double():
+	return <double> rand() / <double> RAND_MAX
+
 # Assume that i2 > 0
-# C %-operator is retarded
+# C %-operator does not behave like I want it to
 cdef inline int int_mod(int i1, int i2):
 	return i1%i2 if i1 >= 0 else ((i1%i2) + i2) % i2
 
-# To convince myself that mod above is correct and that % is no good
-#def modulo1(x1, x2):
-#	cdef double dx1, dx2
-#	dx1 = <double> x1
-#	dx2 = <double> x2
-#	return dx1 % dx2
+# Returns a random integer in [min_i, max_i-1]
+cdef unsigned int rand_interval(unsigned int min_i, unsigned int max_i):
+	cdef unsigned int r
+	cdef unsigned int interval = max_i - min_i
+	cdef unsigned int buckets = RAND_MAX / interval
+	cdef unsigned int limit = buckets * interval
+	
+	while True:
+		r = rand();
+		if r < limit:
+			break
+	
+	return min_i + (r / buckets)
 
-#def modulo2(x1, x2):
-#	return mod(x1, x2)
-
-#def int_modulo(i1, i2):
-#	cdef int ii1, ii2, r
-#	ii1 = <int> i1
-#	ii2 = <int> i2
-#	r = int_mod(ii1, ii2)
-#	return r
-
-#def int_modulo2(i1, i2):
-#	cdef int ii1, ii2, r
-#	ii1 = <int> i1
-#	ii2 = <int> i2
-#	r = ii1 % ii2
-#	return r
-
-#cdef inline double square(double x):
-#	return x*x
-
-#@cython.profile(False)
-#def sum_potential3(np.ndarray[double, ndim=1, mode="c"] r not None, double L, np.ndarray[double, ndim=1, mode="c"] circumcircle not None, np.ndarray[double, ndim=1, mode="c"] volume not None):
-#	cdef int N, i, j, ix, iy, iz
-#	cdef double U, r_ix, r_iy, r_iz, r_jx, r_jy, r_jz, r_0, r_ijx, r_ijy, r_ijz, r_ij_norm
+# The elements in A must be ordered
+cdef bint binary_search(int* A, int key, int imin, int imax):
+	cdef int imid
 	
-#	U = 0.0
-#	N = r.shape[0] / 3
-	
-#	for i in range(N):
-#		r_ix = r[3*i] % L
-#		r_iy = r[3*i+1] % L
-#		r_iz = r[3*i+2] % L
-#		for j in range(i+1, N):
-#			r_jx = r[3*j] % L
-#			r_jy = r[3*j+1] % L
-#			r_jz = r[3*j+2] % L
-#			r_0 = circumcircle[i] + circumcircle[j]
-#			for ix in range(-1,2):
-#				r_ijx = r_jx + ix*L - r_ix
-#				for iy in range(-1,2):
-#					r_ijy = r_jy + iy*L - r_iy
-#					for iz in range(-1,2):
-#						r_ijz = r_jz + iz*L - r_iz
-#						r_ij_norm = sqrt(square(r_ijx) + square(r_ijy) + square(r_ijz))
-#						if r_ij_norm < r_0:
-#							U += volume[i]*volume[j]*square((r_ij_norm - r_0) / r_0)
-	
-#	return U
-
-#@cython.profile(False)
-#def sum_potential3_grad(np.ndarray[double, ndim=1, mode="c"] r not None, double L, np.ndarray[double, ndim=1, mode="c"] circumcircle not None, np.ndarray[double, ndim=1, mode="c"] volume not None):
-#	cdef int N, i, j, ix, iy, iz
-#	cdef double r_ix, r_iy, r_iz, r_jx, r_jy, r_jz, r_0, r_ijx, r_ijy, r_ijz, r_ij_norm
-	
-#	N = r.shape[0] / 3
-	
-#	cdef np.ndarray[double, ndim=1] U_grad = np.zeros(dtype="d", shape=(r.shape[0]))
-	
-#	for i in range(N):
-#		r_ix = r[3*i] % L
-#		r_iy = r[3*i+1] % L
-#		r_iz = r[3*i+2] % L
-#		for j in range(i+1, N):
-#			r_jx = r[3*j] % L
-#			r_jy = r[3*j+1] % L
-#			r_jz = r[3*j+2] % L
-#			r_0 = circumcircle[i] + circumcircle[j]
-#			for ix in range(-1,2):
-#				r_ijx = r_jx + ix*L - r_ix
-#				for iy in range(-1,2):
-#					r_ijy = r_jy + iy*L - r_iy
-#					for iz in range(-1,2):
-#						r_ijz = r_jz + iz*L - r_iz
-#						r_ij_norm = sqrt(square(r_ijx) + square(r_ijy) + square(r_ijz))
-#						if r_ij_norm < r_0:
-#							grad = volume[i]*volume[j]*2/square(r_0) * (1 - r_0/r_ij_norm)
-#							U_grad[3*i] -= grad*r_ijx
-#							U_grad[3*i+1] -= grad*r_ijy
-#							U_grad[3*i+2] -= grad*r_ijz
-#							U_grad[3*j] += grad*r_ijx
-#							U_grad[3*j+1] += grad*r_ijy
-#							U_grad[3*j+2] += grad*r_ijz
-	
-#	return U_grad
+	# continue searching while [imin,imax] is not empty
+	while (imax >= imin):
+		# calculate the midpoint for roughly equal partition
+		imid = imin + (imax - imin) / 2
+		if A[imid] == key:
+			# key found at index imid
+			return True; 
+		# determine which subarray to search
+		elif A[imid] < key:
+			# change min index to search upper subarray
+			imin = imid + 1
+		else:
+		# change max index to search lower subarray
+			imax = imid - 1
+	# key was not found
+	return False;
 
 def sum_potential3_and_grad(np.ndarray[double, ndim=1, mode="c"] r not None, double L, np.ndarray[double, ndim=1, mode="c"] circumcircle not None, np.ndarray[double, ndim=1, mode="c"] volume not None):
 	cdef int N, i, j, ix, iy, iz
@@ -146,7 +93,7 @@ def sum_potential3_and_grad(np.ndarray[double, ndim=1, mode="c"] r not None, dou
 						if r_ij_norm < r_0:
 							sq = (r_ij_norm - r_0) / r_0
 							U += volume[i]*volume[j]*sq*sq
-							grad = volume[i]*volume[j]*2/(r_0*r_0) * (1 - r_0/r_ij_norm)
+							grad = volume[i]*volume[j]*2.0/(r_0*r_0) * (1.0 - r_0/r_ij_norm)
 							U_grad[3*i] -= grad*r_ijx
 							U_grad[3*i+1] -= grad*r_ijy
 							U_grad[3*i+2] -= grad*r_ijz
@@ -154,105 +101,141 @@ def sum_potential3_and_grad(np.ndarray[double, ndim=1, mode="c"] r not None, dou
 							U_grad[3*j+1] += grad*r_ijy
 							U_grad[3*j+2] += grad*r_ijz
 	
-	return (U, U_grad)
+	return U, U_grad
 
-def populate_voxels(double L, int M, trunc_triangles_list):
+def populate_voxels(double L, int M, list trunc_triangles):
 	print "Populating voxels"
 	
-	cdef int M3, M2, i, j, min_ix, max_ix, min_iy, max_iy, min_iz, max_iz, ix, iy, iz, N, N_vert, index
-	cdef double delta_x
+	cdef:
+		int i, min_ix, max_ix, min_iy, max_iy, min_iz, max_iz, ix, iy, iz, index
+		int M2 = M*M
+		int M3 = M2*M
+		double delta_x = L/M, t
+		
+		np.ndarray[int, ndim=1, mode="c"] grain_ids = np.ones(dtype="int32", shape=(M3))
 	
+		# Needed to calculate if inside
+		np.ndarray[double, ndim=2, mode="c"] vert
+		np.ndarray[double, ndim=1, mode="c"] midpoint
+		np.ndarray[double, ndim=2, mode="c"] rot_matrix_tr
+
+		double r0[3]
+		double r1[3]
+		
+		bint truncation, inside
+		
+		np.ndarray[char, ndim=1] overlaps = np.zeros(dtype="int8", shape=(M3))
+		
+		list voxel_indices = [], voxel_indices_i
+	
+	for i,tr_tri in enumerate(trunc_triangles):
+		vert = tr_tri.vertices
+		
+		midpoint = tr_tri.midpoint
+		rot_matrix_tr = tr_tri.rot_matrix_tr
+		t = tr_tri.t
+		truncation = tr_tri.r > 0
+		
+		min_ix = <int> floor(M*tr_tri.min_x/L)
+		max_ix = <int> floor(M*tr_tri.max_x/L)
+		min_iy = <int> floor(M*tr_tri.min_y/L)
+		max_iy = <int> floor(M*tr_tri.max_y/L)
+		min_iz = <int> floor(M*tr_tri.min_z/L)
+		max_iz = <int> floor(M*tr_tri.max_z/L)
+		
+		voxel_indices_i = []
+		
+		# grain ids: binder 1, WC 2+i where i=0,...
+		# phases: binder 1, WC 2
+		# All code below should translate to good C
+		for iz in range(min_iz, max_iz+1):
+			for iy in range(min_iy, max_iy+1):
+				for ix in range(min_ix, max_ix+1):
+					index = int_mod(ix, M) + int_mod(iy, M)*M + int_mod(iz, M)*M2
+					
+					r0[0] = delta_x*(0.5+ix) - midpoint[0]
+					r0[1] = delta_x*(0.5+iy) - midpoint[1]
+					r0[2] = delta_x*(0.5+iz) - midpoint[2]
+					
+					# Rotate to coordinates of the triangle
+					# Use explicit matrix mult to avoid calling numpy
+					r1[0] = rot_matrix_tr[0,0]*r0[0] + rot_matrix_tr[0,1]*r0[1] + rot_matrix_tr[0,2]*r0[2]
+					r1[1] = rot_matrix_tr[1,0]*r0[0] + rot_matrix_tr[1,1]*r0[1] + rot_matrix_tr[1,2]*r0[2]
+					r1[2] = rot_matrix_tr[2,0]*r0[0] + rot_matrix_tr[2,1]*r0[1] + rot_matrix_tr[2,2]*r0[2]
+					
+					# The triangle is within the x-y plane. Check if r1 is inside the truncated triangle
+					if truncation:
+						inside = (r1[2] > -t*0.5 and r1[2] < t*0.5 and
+						(r1[1] - vert[2,1])*(vert[1,0] - vert[2,0]) - (vert[1,1] - vert[2,1])*(r1[0] - vert[2,0]) < 0.0 and
+						(r1[1] - vert[3,1])*(vert[2,0] - vert[3,0]) - (vert[2,1] - vert[3,1])*(r1[0] - vert[3,0]) < 0.0 and
+						(r1[1] - vert[4,1])*(vert[3,0] - vert[4,0]) - (vert[3,1] - vert[4,1])*(r1[0] - vert[4,0]) < 0.0 and
+						(r1[1] - vert[4,1])*(vert[5,0] - vert[4,0]) - (vert[5,1] - vert[4,1])*(r1[0] - vert[4,0]) > 0.0 and
+						(r1[1] - vert[5,1])*(vert[0,0] - vert[5,0]) - (vert[0,1] - vert[5,1])*(r1[0] - vert[5,0]) > 0.0 and
+						(r1[1] - vert[0,1])*(vert[1,0] - vert[0,0]) - (vert[1,1] - vert[0,1])*(r1[0] - vert[0,0]) > 0.0)
+					else:
+						inside = (r1[2] > -t*0.5 and r1[2] < t*0.5 and
+						(r1[1] - vert[1,1])*(vert[0,0] - vert[1,0]) - (vert[0,1] - vert[1,1])*(r1[0] - vert[1,0]) < 0.0 and
+						(r1[1] - vert[2,1])*(vert[1,0] - vert[2,0]) - (vert[1,1] - vert[2,1])*(r1[0] - vert[2,0]) < 0.0 and
+						(r1[1] - vert[2,1])*(vert[0,0] - vert[2,0]) - (vert[0,1] - vert[2,1])*(r1[0] - vert[2,0]) > 0.0)
+					
+					if inside:
+						voxel_indices_i.append(index)
+						if grain_ids[index] == 1: # still unclaimed binder
+							grain_ids[index] = i+2
+						elif grain_ids[index] > 1:
+							overlaps[index] += 1
+		
+		voxel_indices_i.sort()
+		voxel_indices.append(np.array(voxel_indices_i, dtype="int32"))
+	
+	return grain_ids, overlaps, voxel_indices
+
+def calc_grain_prop(int M, np.ndarray[int, ndim=1] grain_ids, list trunc_triangles):
+	print "Populating grain and voxel properties"
+	
+	cdef int M3, grain_id, N, index
 	M3 = M*M*M
-	M2 = M*M
 	
-	cdef np.ndarray[int, ndim=1] grain_ids = np.ones(dtype="int32", shape=(M3))
 	cdef np.ndarray[int, ndim=1] phases = np.ones(dtype="int32", shape=(M3))
 	cdef np.ndarray[unsigned char, ndim=1] good_voxels = np.ones(dtype="uint8", shape=(M3))
 	cdef np.ndarray[float, ndim=2] euler_angles = np.zeros(dtype="float32", shape=(M3, 3))
+	
+	N = len(trunc_triangles)
+	cdef np.ndarray[int, ndim=1] grain_volumes = np.zeros(dtype="int32", shape=(N))
+	
+	cdef np.ndarray[float, ndim=2, mode="c"] euler_angles_j = np.zeros(dtype="float32", shape=(N, 3))
+	
+	for index in range(N):
+		euler_angles_j[index, 0] = <float> trunc_triangles[index].euler_angles[0]
+		euler_angles_j[index, 1] = <float> trunc_triangles[index].euler_angles[1]
+		euler_angles_j[index, 2] = <float> trunc_triangles[index].euler_angles[2]
 	
 	cdef np.ndarray[int, ndim=1] phase_volumes = np.zeros(dtype="int32", shape=(2))
 	phase_volumes[0] = M3
 	phase_volumes[1] = 0
 	
-	delta_x = L/M
+	for index in range(M3):
+		if grain_ids[index] > 1:
+			grain_id = grain_ids[index] - 2
+			phases[index] = 2 # WC
+			euler_angles[index, 0] = euler_angles_j[grain_id, 0]
+			euler_angles[index, 1] = euler_angles_j[grain_id, 1]
+			euler_angles[index, 2] = euler_angles_j[grain_id, 2]
+			phase_volumes[0] -= 1
+			phase_volumes[1] += 1
+			grain_volumes[grain_id] += 1
 	
-	N = len(trunc_triangles_list)
-	cdef np.ndarray[int, ndim=1] grain_volumes = np.zeros(dtype="int32", shape=(N))
+	return phases, good_voxels, euler_angles, phase_volumes, grain_volumes
+
+def calc_gb_indices(np.ndarray[char, ndim=1] gb_voxels):
+	print "Populating grain boundary indices"
 	
-	# Needed to calculate if inside
-	cdef np.ndarray[double, ndim=2, mode="c"] vert
-	cdef np.ndarray[double, ndim=1, mode="c"] euler_angles_j
-	cdef np.ndarray[double, ndim=1, mode="c"] midpoint
-	cdef np.ndarray[double, ndim=2, mode="c"] rot_matrix_tr
-	cdef np.ndarray[double, ndim=1] r0 = np.zeros(dtype="float64", shape=(3))
-	cdef np.ndarray[double, ndim=1] r1 = np.zeros(dtype="float64", shape=(3))
-	
-	cdef double t
-	cdef long truncation, inside
-	
-	for i, trunc_triangles in enumerate(trunc_triangles_list):
-		#print "Grain " + str(i) + " of " + str(N)
-		for j, tr_tri in enumerate(trunc_triangles):
-			vert = tr_tri.vertices
-			N_vert = vert.shape[0]
-			
-			euler_angles_j = tr_tri.euler_angles
-			midpoint = tr_tri.midpoint
-			rot_matrix_tr = tr_tri.rot_matrix_tr
-			t = tr_tri.t
-			truncation = tr_tri.r > 0
-			
-			min_ix = int_max(0, <int> floor(M*tr_tri.min_x/L))
-			max_ix = int_min(M-1, <int> floor(M*tr_tri.max_x/L))
-			min_iy = int_max(0, <int> floor(M*tr_tri.min_y/L))
-			max_iy = int_min(M-1, <int> floor(M*tr_tri.max_y/L))
-			min_iz = int_max(0, <int> floor(M*tr_tri.min_z/L))
-			max_iz = int_min(M-1, <int> floor(M*tr_tri.max_z/L))
-			
-			# grain ids: binder 1, WC 2+i where i=0,...
-			# phases: binder 1, WC 2
-			# All code below should translate to good C
-			for iz in range(min_iz, max_iz+1):
-				for iy in range(min_iy, max_iy+1):
-					for ix in range(min_ix, max_ix+1):
-						index = ix + iy*M + iz*M2
-						if grain_ids[index] == 1: # still unclaimed binder
-							r0[0] = delta_x*(0.5+ix) - midpoint[0]
-							r0[1] = delta_x*(0.5+iy) - midpoint[1]
-							r0[2] = delta_x*(0.5+iz) - midpoint[2]
-							
-							# Rotate to coordinates of the triangle
-							# Use explicit matrix mult to avoid calling numpy
-							r1[0] = rot_matrix_tr[0,0]*r0[0] + rot_matrix_tr[0,1]*r0[1] + rot_matrix_tr[0,2]*r0[2]
-							r1[1] = rot_matrix_tr[1,0]*r0[0] + rot_matrix_tr[1,1]*r0[1] + rot_matrix_tr[1,2]*r0[2]
-							r1[2] = rot_matrix_tr[2,0]*r0[0] + rot_matrix_tr[2,1]*r0[1] + rot_matrix_tr[2,2]*r0[2]
-							
-							# The triangle is within the x-y plane. Check if r1 is inside the truncated triangle
-							if truncation:
-								inside = (r1[2] > -t*0.5 and r1[2] < t*0.5 and
-								(r1[1] - vert[2,1])*(vert[1,0] - vert[2,0]) - (vert[1,1] - vert[2,1])*(r1[0] - vert[2,0]) < 0.0 and
-								(r1[1] - vert[3,1])*(vert[2,0] - vert[3,0]) - (vert[2,1] - vert[3,1])*(r1[0] - vert[3,0]) < 0.0 and
-								(r1[1] - vert[4,1])*(vert[3,0] - vert[4,0]) - (vert[3,1] - vert[4,1])*(r1[0] - vert[4,0]) < 0.0 and
-								(r1[1] - vert[4,1])*(vert[5,0] - vert[4,0]) - (vert[5,1] - vert[4,1])*(r1[0] - vert[4,0]) > 0.0 and
-								(r1[1] - vert[5,1])*(vert[0,0] - vert[5,0]) - (vert[0,1] - vert[5,1])*(r1[0] - vert[5,0]) > 0.0 and
-								(r1[1] - vert[0,1])*(vert[1,0] - vert[0,0]) - (vert[1,1] - vert[0,1])*(r1[0] - vert[0,0]) > 0.0)
-							else:
-								inside = (r1[2] > -t*0.5 and r1[2] < t*0.5 and
-								(r1[1] - vert[1,1])*(vert[0,0] - vert[1,0]) - (vert[0,1] - vert[1,1])*(r1[0] - vert[1,0]) < 0.0 and
-								(r1[1] - vert[2,1])*(vert[1,0] - vert[2,0]) - (vert[1,1] - vert[2,1])*(r1[0] - vert[2,0]) < 0.0 and
-								(r1[1] - vert[2,1])*(vert[0,0] - vert[2,0]) - (vert[0,1] - vert[2,1])*(r1[0] - vert[2,0]) > 0.0)
-							
-							if inside:
-								grain_ids[index] = i+2
-								phases[index] = 2
-								euler_angles[index, 0] = <float> euler_angles_j[0]
-								euler_angles[index, 1] = <float> euler_angles_j[1]
-								euler_angles[index, 2] = <float> euler_angles_j[2]
-								phase_volumes[0] -= 1
-								phase_volumes[1] += 1
-								grain_volumes[i] += 1
-	
-	return grain_ids, phases, good_voxels, euler_angles, phase_volumes, grain_volumes
+	cdef int i
+	cdef list gb_indices = []
+	for i in range(0, gb_voxels.shape[0]):
+		if gb_voxels[i]:
+			gb_indices.append(i)
+	return gb_indices
 
 def calc_surface_prop(int M, np.ndarray[int, ndim=1] grain_ids):
 	print "Calculating surface properties"
@@ -287,9 +270,336 @@ def calc_surface_prop(int M, np.ndarray[int, ndim=1] grain_ids):
 					if nb_id != grain_id:
 						surface_voxels[index] += 1
 						if grain_id > 1: # only consider WC here
-							if nb_id == 1:
+							if nb_id == 1: # binder
 								interface_voxels[index] += 1
-							else:
+							else: # nb_id > 1, WC
 								gb_voxels[index] += 1
 	
 	return surface_voxels, gb_voxels, interface_voxels
+
+def calc_mli(int M, double L, np.ndarray[int, ndim=1] grain_ids):
+	print "Calculating mean linear intercept"
+	
+	cdef int ix, iy, iz, old_grain_id, grain_id, M2, M3
+	cdef int N_gb_x = 0, N_interf_x = 0, N_gb_y = 0, N_interf_y = 0, N_gb_z = 0, N_interf_z = 0, N_gb, N_interf
+	cdef double cont, vol_frac_WC, vol_frac_Co, d_WC, d_Co
+	M2 = M*M
+	M3 = M2*M
+	cdef int* phase_volumes = [M3, 0]
+	
+	# along x-axis
+	for iz in range(M):
+		for iy in range(M):
+			old_grain_id = grain_ids[M-1 + iy*M + iz*M2]
+			for ix in range(0, M):
+				index = ix + iy*M + iz*M2
+				grain_id = grain_ids[index]
+				if grain_id != old_grain_id:
+					if grain_id == 1 or old_grain_id == 1: # to or from binder, i.e. WC/binder interface
+						N_interf_x += 1
+					else: # grain_id > 1, WC
+						N_gb_x += 1
+				if grain_id > 1:
+					phase_volumes[1] += 1
+					phase_volumes[0] -= 1
+				
+				old_grain_id = grain_id
+	
+	# along y-axis
+	for iz in range(M):
+		for ix in range(M):
+			old_grain_id = grain_ids[ix + (M-1)*M + iz*M2]
+			for iy in range(0, M):
+				index = ix + iy*M + iz*M2
+				grain_id = grain_ids[index]
+				if grain_id != old_grain_id:
+					if grain_id == 1 or old_grain_id == 1: # to or from binder, i.e. WC/binder interface
+						N_interf_y += 1
+					else: # grain_id > 1, WC
+						N_gb_y += 1
+				old_grain_id = grain_id
+	
+	# along z-axis
+	for iy in range(M):
+		for ix in range(M):
+			old_grain_id = grain_ids[ix + iy*M + (M-1)*M2]
+			for iz in range(0, M):
+				index = ix + iy*M + iz*M2
+				grain_id = grain_ids[index]
+				if grain_id != old_grain_id:
+					if grain_id == 1 or old_grain_id == 1: # to or from binder, i.e. WC/binder interface
+						N_interf_z += 1
+					else: # grain_id > 1, WC
+						N_gb_z += 1
+				old_grain_id = grain_id
+	
+	N_gb = N_gb_x + N_gb_y + N_gb_z
+	N_interf = N_interf_x + N_interf_y + N_interf_z
+	
+	cont = 2*N_gb / <double> (2*N_gb + N_interf)
+	
+	vol_fraction_WC = phase_volumes[1] / <double> M3
+	vol_fraction_Co = phase_volumes[0] / <double> M3
+	
+	# mean free path of WC and Co, resp.
+	d_WC = 2*vol_fraction_WC / (2*N_gb + N_interf) * L * (3*M2)
+	d_Co = 2*vol_fraction_Co / N_interf * L * (3*M2)
+	
+	return cont, d_WC, d_Co
+
+# Monte Carlo of the Potts model with unlimited grains. gb_voxels must be consistent with grain_ids.
+def make_mcp_unlim(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, int steps, double kBT):
+	print "Making Monte Carlo steps"
+	
+	cdef:
+		int M2, M3, i, step, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz, new_id, sum_delta_A, nr_diff_ids, old_gb_voxel
+		int nb_indices[6]
+		int nb_ids[6]
+		int nb_set[6]
+		int delta_A[6]
+		double exp_dA_kBT[4]
+		double random_number
+	
+	M2 = M*M
+	M3 = M2*M
+	
+	# Seed rand with something
+	srand(random.randint(0, INT_MAX))
+	
+	# Set the exponentials
+	for i in range(4):
+		exp_dA_kBT[i] = exp(-(i+1)/kBT)
+	
+	for step in range(steps):
+		# Choose a random voxel and check if it is a gb voxel
+		gb_voxel_index = rand_interval(0, M3)
+		
+		if gb_voxels[gb_voxel_index]:
+			gb_voxel_id = grain_ids[gb_voxel_index]
+			
+			iz = gb_voxel_index / M2
+			iy = (gb_voxel_index - iz*M2) / M
+			ix = gb_voxel_index - iz*M2 - iy*M
+			
+			# right, left, forward, backward, up, down
+			nb_indices[0] = int_mod(ix+1, M) + iy*M + iz*M2
+			nb_indices[1] = int_mod(ix-1, M) + iy*M + iz*M2
+			nb_indices[2] = ix + int_mod(iy+1, M)*M + iz*M2
+			nb_indices[3] = ix + int_mod(iy-1, M)*M + iz*M2
+			nb_indices[4] = ix + iy*M + int_mod(iz+1, M)*M2
+			nb_indices[5] = ix + iy*M + int_mod(iz-1, M)*M2
+			
+			# Clear and populate the *set* of different neighbor indices that are allowed; id > 1, i.e. not binder
+			for i in range(6):
+				nb_ids[i] = grain_ids[nb_indices[i]]
+				nb_set[i] = -1
+			nr_diff_ids = 0
+			for i in range(6):
+				nb_id = nb_ids[i]
+				if nb_id > 1 and nb_id != gb_voxel_id and nb_id != nb_set[0] and nb_id != nb_set[1] and nb_id != nb_set[2] and nb_id != nb_set[3] and nb_id != nb_set[4] and nb_id != nb_set[5]:
+					nb_set[nr_diff_ids] = nb_id
+					nr_diff_ids += 1
+			
+			if nr_diff_ids > 1:
+				new_id = nb_set[rand_interval(0, nr_diff_ids)]
+			else:
+				new_id = nb_set[0]
+			
+			sum_delta_A = 0
+			for i in range(6):
+				if nb_ids[i] == gb_voxel_id: # the new id is different, add 1 area
+					delta_A[i] = 1
+					sum_delta_A += 1
+				elif nb_ids[i] == new_id: # the new id is the same, subtract 1 area
+					delta_A[i] = -1
+					sum_delta_A -= 1
+				else:
+					delta_A[i] = 0
+			
+			if sum_delta_A < 0 or (sum_delta_A == 0 and random_double() < 0.5) or (sum_delta_A > 0 and random_double() < exp_dA_kBT[sum_delta_A-1]):
+				grain_ids[gb_voxel_index] = new_id
+				gb_voxels[gb_voxel_index] += sum_delta_A
+				for i in range(6):
+					gb_voxels[nb_indices[i]] += delta_A[i]
+
+# Monte Carlo of the Potts model where the grains are bound to regions where two or more grains overlap. Quite useless since overlaps tend to be everywhere at high WC fraction. gb_voxels must be consistent with grain_ids.
+def make_mcp_overlap(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, np.ndarray[char, ndim=1] overlaps, int steps, double kBT):
+	print "Making Monte Carlo steps"
+	
+	cdef:
+		int M2, M3, i, step, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz, new_id, sum_delta_A, nr_diff_ids, old_gb_voxel
+		int nb_indices[6]
+		int nb_ids[6]
+		int nb_set[6]
+		int delta_A[6]
+		double exp_dA_kBT[4]
+		double random_number
+	
+	M2 = M*M
+	M3 = M2*M
+	
+	# Seed rand with something
+	srand(random.randint(0, INT_MAX))
+	
+	# Set the exponentials
+	for i in range(4):
+		exp_dA_kBT[i] = exp(-(i+1)/kBT)
+	
+	for step in range(steps):
+		# Choose a random voxel and check if it is a gb voxel and an overlap voxel
+		gb_voxel_index = rand_interval(0, M3)
+		
+		if gb_voxels[gb_voxel_index] and overlaps[gb_voxel_index]:
+			gb_voxel_id = grain_ids[gb_voxel_index]
+			
+			iz = gb_voxel_index / M2
+			iy = (gb_voxel_index - iz*M2) / M
+			ix = gb_voxel_index - iz*M2 - iy*M
+			
+			# right, left, forward, backward, up, down
+			nb_indices[0] = int_mod(ix+1, M) + iy*M + iz*M2
+			nb_indices[1] = int_mod(ix-1, M) + iy*M + iz*M2
+			nb_indices[2] = ix + int_mod(iy+1, M)*M + iz*M2
+			nb_indices[3] = ix + int_mod(iy-1, M)*M + iz*M2
+			nb_indices[4] = ix + iy*M + int_mod(iz+1, M)*M2
+			nb_indices[5] = ix + iy*M + int_mod(iz-1, M)*M2
+			
+			# Clear and populate the *set* of different neighbor indices that are allowed; id > 1, i.e. not binder
+			for i in range(6):
+				nb_ids[i] = grain_ids[nb_indices[i]]
+				nb_set[i] = -1
+			nr_diff_ids = 0
+			for i in range(6):
+				nb_id = nb_ids[i]
+				if nb_id > 1 and nb_id != gb_voxel_id and nb_id != nb_set[0] and nb_id != nb_set[1] and nb_id != nb_set[2] and nb_id != nb_set[3] and nb_id != nb_set[4] and nb_id != nb_set[5]:
+					nb_set[nr_diff_ids] = nb_id
+					nr_diff_ids += 1
+			
+			if nr_diff_ids > 1:
+				new_id = nb_set[rand_interval(0, nr_diff_ids)]
+			else:
+				new_id = nb_set[0]
+			
+			sum_delta_A = 0
+			for i in range(6):
+				if nb_ids[i] == gb_voxel_id: # the new id is different, add 1 area
+					delta_A[i] = 1
+					sum_delta_A += 1
+				elif nb_ids[i] == new_id: # the new id is the same, subtract 1 area
+					delta_A[i] = -1
+					sum_delta_A -= 1
+				else:
+					delta_A[i] = 0
+			
+			if sum_delta_A < 0 or (sum_delta_A == 0 and random_double() < 0.5) or (sum_delta_A > 0 and random_double() < exp_dA_kBT[sum_delta_A-1]):
+				grain_ids[gb_voxel_index] = new_id
+				gb_voxels[gb_voxel_index] += sum_delta_A
+				for i in range(6):
+					gb_voxels[nb_indices[i]] += delta_A[i]
+
+# Monte Carlo of the Potts model where the grains are bound to their original truncated triangle shape. gb_voxels must be consistent with grain_ids.
+def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, list voxel_indices, int steps, double kBT):
+	print "Making Monte Carlo steps"
+	
+	cdef:
+		int M2, M3, i, j, step, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz, new_id, sum_delta_A, nr_diff_ids, old_gb_voxel, N
+		bint in_set
+		int nb_indices[6]
+		int nb_ids[6]
+		int nb_set[6]
+		int delta_A[6]
+		double exp_dA_kBT[4]
+		double random_number
+		int **voxel_indices_c
+		int *voxel_indices_c_len
+		np.ndarray[int, ndim=1, mode="c"] voxel_indices_c_i
+	
+	N = len(voxel_indices)
+	voxel_indices_c = <int**> malloc(N*sizeof(int*))
+	if not voxel_indices_c:
+		raise MemoryError()
+	voxel_indices_c_len = <int*> malloc(N*sizeof(int))
+	if not voxel_indices_c_len:
+		raise MemoryError()
+	
+	for i in range(N):
+		voxel_indices_c_i = voxel_indices[i]
+		voxel_indices_c_len[i] = <int> voxel_indices_c_i.shape[0]
+		# an int pointer to the first element in voxel_indices_c_i
+		voxel_indices_c[i] = &voxel_indices_c_i[0]
+	
+	M2 = M*M
+	M3 = M2*M
+	
+	# Seed rand with something
+	srand(random.randint(0, INT_MAX))
+	
+	# Set the exponentials
+	for i in range(4):
+		exp_dA_kBT[i] = exp(-(i+1)/kBT)
+	
+	for step in range(steps):
+		# Choose a random voxel
+		gb_voxel_index = rand_interval(0, M3)
+		
+		# Check if it is a gb voxel
+		if gb_voxels[gb_voxel_index]:
+			gb_voxel_id = grain_ids[gb_voxel_index]
+			
+			iz = gb_voxel_index / M2
+			iy = (gb_voxel_index - iz*M2) / M
+			ix = gb_voxel_index - iz*M2 - iy*M
+			
+			# right, left, forward, backward, up, down
+			nb_indices[0] = int_mod(ix+1, M) + iy*M + iz*M2
+			nb_indices[1] = int_mod(ix-1, M) + iy*M + iz*M2
+			nb_indices[2] = ix + int_mod(iy+1, M)*M + iz*M2
+			nb_indices[3] = ix + int_mod(iy-1, M)*M + iz*M2
+			nb_indices[4] = ix + iy*M + int_mod(iz+1, M)*M2
+			nb_indices[5] = ix + iy*M + int_mod(iz-1, M)*M2
+			
+			# Clear and populate the *set* of different neighbor indices that are allowed; id > 1, i.e. not binder
+			for i in range(6):
+				nb_ids[i] = grain_ids[nb_indices[i]]
+				nb_set[i] = -1
+			nr_diff_ids = 0
+			for i in range(6):
+				nb_id = nb_ids[i]
+				if nb_id > 1 and nb_id != gb_voxel_id: # Not binder and not the same id
+					in_set = False
+					for j in range(nr_diff_ids):
+						in_set = nb_id == nb_set[j]
+						if in_set:
+							break
+					# Not in set and gb_voxel_id belongs to nb_id and can thus be changed to nb_id
+					if not in_set and binary_search(voxel_indices_c[nb_id-2], gb_voxel_index, 0, voxel_indices_c_len[nb_id-2]-1):
+						nb_set[nr_diff_ids] = nb_id
+						nr_diff_ids += 1
+			
+			# the set of allowed changes can be zero if we are at the edges of a truncated triangle
+			if nr_diff_ids > 0:
+				if nr_diff_ids > 1:
+					new_id = nb_set[rand_interval(0, nr_diff_ids)]
+				else:
+					new_id = nb_set[0]
+				
+				sum_delta_A = 0
+				for i in range(6):
+					if nb_ids[i] == gb_voxel_id: # the new id is different, add 1 area
+						delta_A[i] = 1
+						sum_delta_A += 1
+					elif nb_ids[i] == new_id: # the new id is the same, subtract 1 area
+						delta_A[i] = -1
+						sum_delta_A -= 1
+					else:
+						delta_A[i] = 0
+				
+				# Metropolis algorithm
+				if sum_delta_A < 0 or (sum_delta_A == 0 and random_double() < 0.5) or (sum_delta_A > 0 and random_double() < exp_dA_kBT[sum_delta_A-1]):
+					grain_ids[gb_voxel_index] = new_id
+					gb_voxels[gb_voxel_index] += sum_delta_A
+					for i in range(6):
+						gb_voxels[nb_indices[i]] += delta_A[i]
+	
+	free(voxel_indices_c)
+	free(voxel_indices_c_len)
