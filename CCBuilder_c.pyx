@@ -30,6 +30,9 @@ cdef inline double random_double():
 cdef inline int int_mod(int i1, int i2):
 	return i1%i2 if i1 >= 0 else ((i1%i2) + i2) % i2
 
+cdef inline long long longlong_mod(long long i1, long long i2):
+	return i1%i2 if i1 >= 0 else ((i1%i2) + i2) % i2
+
 # Returns a random integer in [min_i, max_i-1]
 cdef unsigned int rand_interval(unsigned int min_i, unsigned int max_i):
 	cdef unsigned int r
@@ -103,17 +106,15 @@ def sum_potential3_and_grad(np.ndarray[double, ndim=1, mode="c"] r not None, dou
 	
 	return U, U_grad
 
-def populate_voxels(double L, int M, list trunc_triangles):
-	print "Populating voxels"
+def make_voxel_indices(double L, int M, list trunc_triangles):
+	print "Making a list of voxel indices (ix,iy,iz) for each grain."
 	
 	cdef:
-		int i, min_ix, max_ix, min_iy, max_iy, min_iz, max_iz, ix, iy, iz, index
+		int i, min_ix, max_ix, min_iy, max_iy, min_iz, max_iz, ix, iy, iz
 		int M2 = M*M
 		int M3 = M2*M
 		double delta_x = L/M, t
 		
-		np.ndarray[int, ndim=1, mode="c"] grain_ids = np.ones(dtype="int32", shape=(M3))
-	
 		# Needed to calculate if inside
 		np.ndarray[double, ndim=2, mode="c"] vert
 		np.ndarray[double, ndim=1, mode="c"] midpoint
@@ -123,8 +124,6 @@ def populate_voxels(double L, int M, list trunc_triangles):
 		double r1[3]
 		
 		bint truncation, inside
-		
-		np.ndarray[char, ndim=1] overlaps = np.zeros(dtype="int8", shape=(M3))
 		
 		list voxel_indices = [], voxel_indices_i
 	
@@ -145,19 +144,14 @@ def populate_voxels(double L, int M, list trunc_triangles):
 		
 		voxel_indices_i = []
 		
-		# grain ids: binder 1, WC 2+i where i=0,...
-		# phases: binder 1, WC 2
-		# All code below should translate to good C
 		for iz in range(min_iz, max_iz+1):
 			for iy in range(min_iy, max_iy+1):
 				for ix in range(min_ix, max_ix+1):
-					index = int_mod(ix, M) + int_mod(iy, M)*M + int_mod(iz, M)*M2
-					
 					r0[0] = delta_x*(0.5+ix) - midpoint[0]
 					r0[1] = delta_x*(0.5+iy) - midpoint[1]
 					r0[2] = delta_x*(0.5+iz) - midpoint[2]
 					
-					# Rotate to coordinates of the triangle
+					# r1 is r0 expressed in coordinates fixed in the triangle
 					# Use explicit matrix mult to avoid calling numpy
 					r1[0] = rot_matrix_tr[0,0]*r0[0] + rot_matrix_tr[0,1]*r0[1] + rot_matrix_tr[0,2]*r0[2]
 					r1[1] = rot_matrix_tr[1,0]*r0[0] + rot_matrix_tr[1,1]*r0[1] + rot_matrix_tr[1,2]*r0[2]
@@ -179,14 +173,110 @@ def populate_voxels(double L, int M, list trunc_triangles):
 						(r1[1] - vert[2,1])*(vert[0,0] - vert[2,0]) - (vert[0,1] - vert[2,1])*(r1[0] - vert[2,0]) > 0.0)
 					
 					if inside:
-						voxel_indices_i.append(index)
-						if grain_ids[index] == 1: # still unclaimed binder
-							grain_ids[index] = i+2
-						elif grain_ids[index] > 1:
-							overlaps[index] += 1
+						voxel_indices_i.append(int_mod(ix, M))
+						voxel_indices_i.append(int_mod(iy, M))
+						voxel_indices_i.append(int_mod(iz, M))
+		
+		voxel_indices.append(np.array(voxel_indices_i, dtype="int32"))
+	
+	return voxel_indices
+
+# Make N_tries attempts to place each grain with minimum overlap with existing grains. The position is varied randomly within [-delta,+delta] from the original position. Updates the list voxel_indices_xyz and also returns a sorted list of indices (which is not separated in x,y,z components) to use in make_mcp_bound.
+def populate_voxels(int M, list voxel_indices_xyz, int N_tries, int delta):
+	print "Populating voxels"
+	
+	# Seed rand with something
+	srand(random.randint(0, INT_MAX))
+	
+	cdef:
+		int i, j, M2 = M*M, M3 = M2*M, ix, iy, iz, index, N_voxels
+		int N_grains = len(voxel_indices_xyz)
+		np.ndarray[int, ndim=1, mode="c"] grain_ids = np.ones(dtype="int32", shape=(M3))
+		np.ndarray[char, ndim=1, mode="c"] overlaps = np.zeros(dtype="int8", shape=(M3))
+		int **voxel_indices_c
+		int *voxel_indices_c_len
+		np.ndarray[int, ndim=1, mode="c"] voxel_indices_xyz_i
+		int overlap_j, overlap_min, n_tries, delta_x, delta_y, delta_z, delta_x_j, delta_y_j, delta_z_j
+		list voxel_indices = []
+		np.ndarray[int, ndim=1, mode="c"] voxel_indices_i
+	
+	voxel_indices_c = <int**> malloc(N_grains*sizeof(int*))
+	if not voxel_indices_c:
+		raise MemoryError()
+	voxel_indices_c_len = <int*> malloc(N_grains*sizeof(int))
+	if not voxel_indices_c_len:
+		raise MemoryError()
+	
+	for i in range(N_grains):
+		voxel_indices_xyz_i = voxel_indices_xyz[i]
+		voxel_indices_c_len[i] = <int> voxel_indices_xyz_i.shape[0] / 3
+		# an int pointer to the first element in voxel_indices_xyz_i
+		voxel_indices_c[i] = &voxel_indices_xyz_i[0]
+	
+	for i in range(N_grains):
+		N_voxels = voxel_indices_c_len[i]
+		n_tries = 0
+		overlap_min = INT_MAX
+		
+		delta_x = 0
+		delta_y = 0
+		delta_z = 0
+		
+		if N_tries > 0 and delta > 0:
+			# do,while loops would be nice
+			while True:
+				if n_tries == 0:
+					delta_x_j = 0
+					delta_y_j = 0
+					delta_z_j = 0
+				else:
+					delta_x_j = -delta + rand_interval(0, 2*delta+1)
+					delta_y_j = -delta + rand_interval(0, 2*delta+1)
+					delta_z_j = -delta + rand_interval(0, 2*delta+1)
+				
+				overlap_j = 0
+				for j in range(N_voxels):
+					ix = int_mod(voxel_indices_c[i][3*j] + delta_x_j, M)
+					iy = int_mod(voxel_indices_c[i][3*j+1] + delta_y_j, M)
+					iz = int_mod(voxel_indices_c[i][3*j+2] + delta_z_j, M)
+					index = ix + iy*M + iz*M2
+					if grain_ids[index] > 1: # claimed, so add overlap
+						overlap_j += 1
+				
+				if overlap_j < overlap_min:
+					overlap_min = overlap_j
+					delta_x = delta_x_j
+					delta_y = delta_y_j
+					delta_z = delta_z_j
+				
+				n_tries += 1
+				if overlap_min == 0 or n_tries == N_tries:
+					break
+		
+		print "grain {}: tries: {} delta: {} {} {}".format(*(i, n_tries, delta_x, delta_y, delta_z))
+		
+		voxel_indices_i = np.zeros(dtype="int32", shape=(N_voxels))
+		
+		# Rerun with optimal delta_x, delta_y, delta_z
+		for j in range(N_voxels):
+			ix = int_mod(voxel_indices_c[i][3*j] + delta_x, M)
+			iy = int_mod(voxel_indices_c[i][3*j+1] + delta_y, M)
+			iz = int_mod(voxel_indices_c[i][3*j+2] + delta_z, M)
+			voxel_indices_c[i][3*j] = ix
+			voxel_indices_c[i][3*j+1] = iy
+			voxel_indices_c[i][3*j+2] = iz
+			index = ix + iy*M + iz*M2
+			voxel_indices_i[j] = index
+			if grain_ids[index] == 1: # still unclaimed binder
+				grain_ids[index] = i+2
+			elif grain_ids[index] > 1: # claimed, so add overlap
+				overlaps[index] += 1
 		
 		voxel_indices_i.sort()
-		voxel_indices.append(np.array(voxel_indices_i, dtype="int32"))
+		voxel_indices.append(voxel_indices_i)
+	
+	free(voxel_indices_c)
+	free(voxel_indices_c_len)
 	
 	return grain_ids, overlaps, voxel_indices
 
@@ -498,11 +588,11 @@ def make_mcp_overlap(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, 
 					gb_voxels[nb_indices[i]] += delta_A[i]
 
 # Monte Carlo of the Potts model where the grains are bound to their original truncated triangle shape. gb_voxels must be consistent with grain_ids.
-def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, list voxel_indices, int steps, double kBT):
+def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, list voxel_indices, long long steps, double kBT):
 	print "Making Monte Carlo steps"
 	
 	cdef:
-		int M2, M3, i, j, step, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz, new_id, sum_delta_A, nr_diff_ids, old_gb_voxel, N
+		int M2, M3, i, j, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz, new_id, sum_delta_A, nr_diff_ids, old_gb_voxel, N
 		bint in_set
 		int nb_indices[6]
 		int nb_ids[6]
@@ -513,6 +603,10 @@ def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, nd
 		int **voxel_indices_c
 		int *voxel_indices_c_len
 		np.ndarray[int, ndim=1, mode="c"] voxel_indices_c_i
+		long long step, steps_10, steps_100
+	
+	steps_10 = steps / 10
+	steps_100 = steps / 100
 	
 	N = len(voxel_indices)
 	voxel_indices_c = <int**> malloc(N*sizeof(int*))
@@ -539,6 +633,9 @@ def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, nd
 		exp_dA_kBT[i] = exp(-(i+1)/kBT)
 	
 	for step in range(steps):
+		if longlong_mod(step, steps_10) == 0:
+			print np.str(step / steps_100) + "%, step " + np.str(step)
+		
 		# Choose a random voxel
 		gb_voxel_index = rand_interval(0, M3)
 		
