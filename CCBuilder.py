@@ -5,11 +5,8 @@ import TruncatedTriangle as tt
 import scipy.optimize
 import CCBuilder_c as ccb_c
 
-def prepare_triangles(vol_frac_goal, L):
+def prepare_triangles(vol_frac_goal, L, r_min=0.1, r_max=0.4, k_min=0.2, k_max=0.6):
 	print "Prepare triangles"
-	
-	r_min = 0.1; r_max = 0.4
-	k_min = 0.2; k_max = 0.6
 	
 	d_eq_min = 0.5
 	d_eq_max = 2
@@ -65,7 +62,7 @@ def optimize_midpoints(L, trunc_triangles):
 	circumcircles = np.array([trunc_triangle.circumcircle for trunc_triangle in trunc_triangles])
 	volumes = np.array([trunc_triangle.volume for trunc_triangle in trunc_triangles])
 	
-	result = scipy.optimize.minimize(ccb_c.sum_potential3_and_grad, x0, args=(L, circumcircles, volumes), method='BFGS', jac=True, tol=1E-2, options = {'disp' : True})
+	result = scipy.optimize.minimize(ccb_c.sum_potential3_and_grad, x0, args=(L, circumcircles, volumes), method='BFGS', jac=True, tol=1E-2, options = {'disp' : True, 'maxiter' : 20})
 	
 	for i in range(N):
 		trunc_triangles[i].set_midpoint(np.mod(result.x[3*i:3*i+3], L))

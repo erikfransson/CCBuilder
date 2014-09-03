@@ -181,7 +181,7 @@ def make_voxel_indices(double L, int M, list trunc_triangles):
 	
 	return voxel_indices
 
-# Make N_tries attempts to place each grain with minimum overlap with existing grains. The position is varied randomly within [-delta,+delta] from the original position. Updates the list voxel_indices_xyz and also returns a sorted list of indices (which is not separated in x,y,z components) to use in make_mcp_bound.
+# Make N_tries attempts to place each grain with minimum overlap with existing grains. The position is varied randomly within [-delta,+delta] from the original position. The function will not touch the list voxel_indices_xyz and it will hence not be altered by the attempts. Returns a sorted list of indices (which is not separated in x,y,z components) to use in make_mcp_bound. The indices of the returned list correspond to optimal grain positions.
 def populate_voxels(int M, list voxel_indices_xyz, int N_tries, int delta):
 	print "Populating voxels"
 	
@@ -262,9 +262,10 @@ def populate_voxels(int M, list voxel_indices_xyz, int N_tries, int delta):
 			ix = int_mod(voxel_indices_c[i][3*j] + delta_x, M)
 			iy = int_mod(voxel_indices_c[i][3*j+1] + delta_y, M)
 			iz = int_mod(voxel_indices_c[i][3*j+2] + delta_z, M)
-			voxel_indices_c[i][3*j] = ix
-			voxel_indices_c[i][3*j+1] = iy
-			voxel_indices_c[i][3*j+2] = iz
+			# Do NOT update voxel_indices_xyz
+			#voxel_indices_c[i][3*j] = ix
+			#voxel_indices_c[i][3*j+1] = iy
+			#voxel_indices_c[i][3*j+2] = iz
 			index = ix + iy*M + iz*M2
 			voxel_indices_i[j] = index
 			if grain_ids[index] == 1: # still unclaimed binder
