@@ -190,12 +190,12 @@ def write_hdf5(filename, M, spacing, trunc_triangles, grain_ids, phases, good_vo
 	
 	f.close()
 	
-	filename_xdmf = filename.split('.')[0] + ".xdmf"
+	filename_xdmf = filename[:filename.rfind('.')] + ".xdmf"
 	write_xdmf(filename_xdmf, M, spacing, surface_voxels != None, gb_voxels != None, interface_voxels != None, overlaps != None)
 
 def write_xdmf(filename, M, spacing, surface_voxels=False, gb_voxels=False, interface_voxels=False, overlaps=False):
 	with open(filename, 'w') as f:
-		filename_hdf5 = filename.split('.')[0] + ".hdf5"
+		filename_hdf5 = filename[:filename.rfind('.')] + ".hdf5"
 		M_plus1 = [M[0]+1, M[1]+1, M[2]+1]
 		
 		f.write('<?xml version="1.0"?>\n<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd"[]>\n<Xdmf xmlns:xi="http://www.w3.org/2003/XInclude" Version="2.2">\n')
