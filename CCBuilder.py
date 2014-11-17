@@ -87,6 +87,112 @@ def mass_fraction(vol_frac):
 def volume_to_eq_d(volume):
 	return 2*np.power(3*volume/(4*np.pi), 1/3.)
 
+
+def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
+	f = open(filename + ".in", "w")
+
+	ids_in_grain = [list() for x in range(max(grain_ids))]
+	for el, grain in enumerate(grain_ids):
+		ids_in_grain[grain-1].append(el)
+	nmat = len(ids_in_grain)
+
+	NX = M[0]+1
+	NY = M[1]+1
+	NZ = M[2]+1
+
+	f.write("{}.out\n".format(filename))
+	f.write("Generated structured grid for {}\n".format(filename))
+	f.write("StaticStructural nsteps 1 nmodules 1 lstype 3 smtype 7\n")
+	f.write("vtkxml tstep_all cellvars 3 1 4 103 primvars 1 1 stype 0\n")
+	f.write("domain 3d\n")
+	f.write("outputmanager\n")
+	f.write("ndofman {0} nelem {1} nset {2} ncrosssect {3} nmat {3} nbc {4} nltf {5} nic 0\n".format(NX*NY*NZ, M[0]*M[1]*M[2],
+									nmat+3, nmat, 3, 2))
+	node = 0
+	for nz in range(NX):
+		for ny in range(NY):
+			for nx in range(NZ):
+				node += 1
+				f.write("Node {} coords 3 {} {} {}\n".format(node, nx*spacing[0], ny*spacing[1], nz*spacing[2]))
+
+	element = 0
+	for ez in range(M[2]):
+		for ey in range(M[1]):
+			for ex in range(M[0]):
+				element += 1
+				nodes = np.array([NX*NY+NZ, NX*NY+NX+1, NX*NY + 1, NY*NX, NX, NX+1, 1, 0]) + (1+ex + NX*ey + NX*NY*ez)
+				f.write("LSpace {} nodes 8 {} {} {} {} {} {} {} {}\n".format(element, *nodes))
+
+	for setcount, set in enumerate(ids_in_grain):
+		f.write("SimpleCS {0} material {0} set {0}\n".format(setcount+1))
+
+	for setcount, set in enumerate(ids_in_grain):
+		f.write("IsoLE {} tAlpha 0. d 1. ".format(setcount+1))
+		if setcount == 0:
+			f.write("E {} n {}\n".format(209e9, 0.31))
+		else:
+			f.write("E {} n {}\n".format(250e9, 0.3))
+
+
+	f.write("BoundaryCondition 1 loadTimeFunction 1 dofs 3 1 2 3 values 3 0. 0. 0.0 set {}\n".format(0)) # nmat+1
+	f.write("BoundaryCondition 2 loadTimeFunction 2 dofs 3 1 2 3 values 3 0. 0. 0.1 set {}\n".format(0)) # nmat+2
+	f.write("PrescribedGradient 3 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 {{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} set {}\n".format(nmat+3))
+	f.write("ConstantFunction 1 f(t) 1.0\n")
+	f.write("ConstantFunction 2 f(t) 1.0\n")
+
+	for setcount, set in enumerate(ids_in_grain):
+		f.write("Set {} elements {}".format(setcount+1, len(set)))
+		f.write("".join(" {}".format(k+1) for k in set))
+		f.write("\n")
+	f.write("Set {} nodes {}".format(nmat+1, NX*NY))
+	for ny in range(NX):
+		for nx in range(NY):
+			f.write(" {}".format(nx + NX*ny + 1))
+	f.write("\n")
+	f.write("Set {} nodes {}".format(nmat+2, NX*NY))
+	for ny in range(NX):
+		for nx in range(NY):
+			f.write(" {}".format(nx + NX*ny + 1 + (NZ-1)*NX*NY))
+	f.write("\n")
+
+	f.write("Set {} elementboundaries {}".format(nmat+3, 2*2*(M[0]*M[1] + M[0]*M[2] + M[1]*M[2])))
+	# X-Y plane (facing -z):
+	sz = 0
+	for sy in range(M[1]):
+		for sx in range(M[0]):
+			f.write(" {} 2".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
+	# X-Z plane (facing -y):
+	for sz in range(M[2]):
+		sy = 0
+		for sx in range(M[0]):
+			f.write(" {} 5".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
+	# Y-Z plane (facing -x):
+	for sz in range(M[2]):
+		for sy in range(M[1]):
+			sx = 0
+			f.write(" {} 6".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
+
+	# X-Y plane (facing +z):
+	sz = M[2]-1
+	for sy in range(M[1]):
+		for sx in range(M[0]):
+			f.write(" {} 1".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
+	# X-Z plane (facing +y):
+	for sz in range(M[2]):
+		sy = M[1]-1
+		for sx in range(M[0]):
+			f.write(" {} 3".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
+	# Y-Z plane (facing +x):
+	for sz in range(M[2]):
+		for sy in range(M[1]):
+			sx = M[0]-1
+			f.write(" {} 4".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
+	f.write("\n")
+
+	f.write("Set {} nodes {{()}}".format(nmat+4, NX*NY*NZ))
+
+
+
 def write_hdf5(filename, M, spacing, trunc_triangles, grain_ids, phases, good_voxels, euler_angles, surface_voxels=None, gb_voxels=None, interface_voxels=None, overlaps=None):
 	f = h5py.File(filename, "w")
 	

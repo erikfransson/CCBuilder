@@ -4,10 +4,13 @@ import CCBuilder_c as ccb_c
 import cPickle as pickle
 import time
 
-vol_frac_goal = 1.
-L = 5.
+print "Running"
+vol_frac_goal = 0.8
+# Cube size:
+L = 2.
 
-M = 50
+# Number of voxels
+M = 100
 delta_x = L/M
 
 mc_steps = 100*M**3
@@ -91,3 +94,6 @@ sum_gb_voxels_2 = np.sum(gb_voxels_2)
 contiguity_2 = sum_gb_voxels_2 / np.float(sum_gb_voxels_2 + np.sum(interface_voxels_2))
 
 ccb.write_hdf5('testfile_2.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2, phases_2, good_voxels_2, euler_angles_2, surface_voxels_2, gb_voxels_2, interface_voxels_2, overlaps_0)
+
+
+ccb.write_oofem('testfile_2', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2)
