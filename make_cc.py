@@ -1,3 +1,4 @@
+#!/usr/bin/python2
 import numpy as np
 import CCBuilder as ccb
 import CCBuilder_c as ccb_c
@@ -7,10 +8,10 @@ import time
 print "Running"
 vol_frac_goal = 0.8
 # Cube size:
-L = 2.
+L = 5.
 
 # Number of voxels
-M = 100
+M = 120
 delta_x = L/M
 
 mc_steps = 100*M**3

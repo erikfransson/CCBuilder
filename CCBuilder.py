@@ -127,11 +127,43 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 		f.write("SimpleCS {0} material {0} set {0}\n".format(setcount+1))
 
 	for setcount, set in enumerate(ids_in_grain):
-		f.write("IsoLE {} tAlpha 0. d 1. ".format(setcount+1))
 		if setcount == 0:
-			f.write("E {} n {}\n".format(209e9, 0.31))
+			f.write("IsoLE {} d 1. tAlpha {} E {} n {}\n".format(setcount+1, 13.8e-6, 211e9, 0.31))
 		else:
-			f.write("E {} n {}\n".format(719e9, 0.19))
+			a1, a3 = (5.2e-6, 7.3e-6)
+			C11, C12, C13, C33, C44 = (720e9, 254e9, 267e9, 972e9, 328e9)
+			C66 = 0.5 * (C11-C12)
+			C = np.matrix([[C11, C12, C13, 0,0,0], [C12, C11, C13, 0,0,0], [C13,C13,C33, 0,0,0], [0,0,0, C44,0,0], [0,0,0, 0,C44,0], [0,0,0, 0,0,C66]]);
+			alpha = [a1, a1, a3]
+
+			m = trunc_triangles[setcount-1].rot_matrix # set = 0 is the matrix material, therefor setcount-1
+			x = m[:,0]
+			y = m[:,1]
+			z = m[:,2]
+
+		        Q = np.matrix([
+		            [ x[0] * x[0], x[1] * x[1], x[2] * x[2], x[1] * x[2], x[0] * x[2], x[0] * x[1] ],
+		            [ y[0] * y[0], y[1] * y[1], y[2] * y[2], y[1] * y[2], y[0] * y[2], y[0] * y[1] ],
+		            [ z[0] * z[0], z[1] * z[1], z[2] * z[2], z[1] * z[2], z[0] * z[2], z[0] * z[1] ],
+		            [ 2 * y[0] * z[0], 2 * y[1] * z[1], 2 * y[2] * z[2], y[2] * z[1] + y[1] * z[2], y[2] * z[0] + y[0] * z[2], y[1] * z[0] + y[0] * z[1] ],
+		            [ 2 * x[0] * z[0], 2 * x[1] * z[1], 2 * x[2] * z[2], x[2] * z[1] + x[1] * z[2], x[2] * z[0] + x[0] * z[2], x[1] * z[0] + x[0] * z[1] ],
+		            [ 2 * x[0] * y[0], 2 * x[1] * y[1], 2 * x[2] * y[2], x[2] * y[1] + x[1] * y[2], x[2] * y[0] + x[0] * y[2], x[1] * y[0] + x[0] * y[1] ]
+		        ]);
+
+			D = Q * C * Q.transpose()
+			alphaRot = np.dot(m, alpha)
+			Dsym = [D[0,0], D[0,1], D[0,2], D[0,3], D[0,4], D[0,5],
+					D[1,1], D[1,2], D[1,3], D[1,4], D[1,5],
+						D[2,2], D[2,3], D[2,4], D[2,5],
+							D[3,3], D[3,4], D[3,5],
+								D[4,4], D[4,5],
+									D[5,5]]
+
+			f.write("AnIsoLE {} d 1. ".format(setcount+1))
+			f.write("tAlpha 3 {0[0]} {0[1]} {0[2]} ".format(alphaRot))
+			f.write(("stiff 21 {0[0]} {0[1]} {0[2]} {0[3]} {0[4]} {0[5]} {0[6]} {0[7]} {0[8]} {0[9]} {0[10]} "+
+				"{0[11]} {0[12]} {0[13]} {0[14]} {0[15]} {0[16]} {0[17]} {0[18]} {0[19]} {0[20]}\n").format(Dsym))
+			#f.write("IsoLE {} d 1. tAlpha {} E {} n {}\n".format(setcount+1, 6.2e-6, 719e9, 0.19))
 
 
 	f.write("BoundaryCondition 1 loadTimeFunction 1 dofs 3 1 2 3 values 3 0. 0. 0.0 set {}\n".format(0)) # nmat+1
