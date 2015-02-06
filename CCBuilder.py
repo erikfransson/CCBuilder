@@ -103,11 +103,11 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 	f.write("{}.out\n".format(filename))
 	f.write("Generated structured grid for {}\n".format(filename))
 	f.write("StaticStructural nsteps 1 nmodules 1 lstype 3 smtype 7\n")
-	f.write("vtkxml tstep_all cellvars 3 1 4 103 primvars 1 1 stype 0\n")
+	f.write("vtkxml tstep_all cellvars 4 1 4 81 103 primvars 1 1 stype 0\n")
 	f.write("domain 3d\n")
 	f.write("outputmanager\n")
 	f.write("ndofman {0} nelem {1} nset {2} ncrosssect {3} nmat {3} nbc {4} nltf {5} nic 0\n".format(NX*NY*NZ, M[0]*M[1]*M[2],
-									nmat+5, nmat, 3, 2))
+									nmat+5, nmat, 4, 2))
 	node = 0
 	for nz in range(NX):
 		for ny in range(NY):
@@ -121,7 +121,7 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 			for ex in range(M[0]):
 				element += 1
 				nodes = np.array([NX*NY+NZ, NX*NY+NX+1, NX*NY + 1, NY*NX, NX, NX+1, 1, 0]) + (1+ex + NX*ey + NX*NY*ez)
-				f.write("LSpace {} nodes 8 {} {} {} {} {} {} {} {}\n".format(element, *nodes))
+				f.write("LSpace {} nodes 8 {} {} {} {} {} {} {} {} bodyloads 1 4\n".format(element, *nodes)) # Forced to do temperature changes as "body loads" FIXME
 
 	for setcount, set in enumerate(ids_in_grain):
 		f.write("SimpleCS {0} material {0} set {0}\n".format(setcount+1))
@@ -134,7 +134,7 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 			C11, C12, C13, C33, C44 = (720e9, 254e9, 267e9, 972e9, 328e9)
 			C66 = 0.5 * (C11-C12)
 			C = np.matrix([[C11, C12, C13, 0,0,0], [C12, C11, C13, 0,0,0], [C13,C13,C33, 0,0,0], [0,0,0, C44,0,0], [0,0,0, 0,C44,0], [0,0,0, 0,0,C66]]);
-			alpha = [a1, a1, a3]
+			a = [a1, a1, a3, 0, 0 ,0]
 
 			m = trunc_triangles[setcount-1].rot_matrix # set = 0 is the matrix material, therefor setcount-1
 			x = m[:,0]
@@ -148,10 +148,12 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 		            [ 2 * y[0] * z[0], 2 * y[1] * z[1], 2 * y[2] * z[2], y[2] * z[1] + y[1] * z[2], y[2] * z[0] + y[0] * z[2], y[1] * z[0] + y[0] * z[1] ],
 		            [ 2 * x[0] * z[0], 2 * x[1] * z[1], 2 * x[2] * z[2], x[2] * z[1] + x[1] * z[2], x[2] * z[0] + x[0] * z[2], x[1] * z[0] + x[0] * z[1] ],
 		            [ 2 * x[0] * y[0], 2 * x[1] * y[1], 2 * x[2] * y[2], x[2] * y[1] + x[1] * y[2], x[2] * y[0] + x[0] * y[2], x[1] * y[0] + x[0] * y[1] ]
-		        ]);
+		        ])
 
 			D = Q * C * Q.transpose()
-			alphaRot = np.dot(m, alpha)
+			aRot = np.array(np.dot(Q, a))[0]
+
+                        #aRot = [(a1*2+a3)/3, (a1*2+a3)/3, (a1*2+a3)/3, 0, 0, 0]
 			Dsym = [D[0,0], D[0,1], D[0,2], D[0,3], D[0,4], D[0,5],
 					D[1,1], D[1,2], D[1,3], D[1,4], D[1,5],
 						D[2,2], D[2,3], D[2,4], D[2,5],
@@ -160,18 +162,19 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 									D[5,5]]
 
 			f.write("AnIsoLE {} d 1. ".format(setcount+1))
-			f.write("tAlpha 3 {0[0]} {0[1]} {0[2]} ".format(alphaRot))
+			f.write("tAlpha 6 {0[0]} {0[1]} {0[2]} {0[3]} {0[4]} {0[5]} ".format(aRot))
 			f.write(("stiff 21 {0[0]} {0[1]} {0[2]} {0[3]} {0[4]} {0[5]} {0[6]} {0[7]} {0[8]} {0[9]} {0[10]} "+
 				"{0[11]} {0[12]} {0[13]} {0[14]} {0[15]} {0[16]} {0[17]} {0[18]} {0[19]} {0[20]}\n").format(Dsym))
 			#f.write("IsoLE {} d 1. tAlpha {} E {} n {}\n".format(setcount+1, 6.2e-6, 719e9, 0.19))
 
 
-	f.write("BoundaryCondition 1 loadTimeFunction 1 dofs 3 1 2 3 values 3 0. 0. 0.0 set {}\n".format(0)) # nmat+1
-	f.write("BoundaryCondition 2 loadTimeFunction 2 dofs 3 1 2 3 values 3 0. 0. 0.1 set {}\n".format(0)) # nmat+2
-	#f.write("PrescribedGradient 3 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 {{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} set {}\n".format(nmat+3))
-	f.write("PrescribedGradientPeriodic 3 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 "+
+	#f.write("PrescribedGradient 1 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 {{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} set {}\n".format(nmat+3))
+	f.write("PrescribedGradientPeriodic 1 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 "+
 			"{{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} jump 3 {0} {1} {2} set {3} masterSet {4}\n".format(
 			spacing[0]*M[0], spacing[0]*M[1], spacing[0]*M[2], nmat+4, nmat+3))
+	f.write("BoundaryCondition 2 loadTimeFunction 1 dofs 3 1 2 3 values 3 0. 0. 0.0 set {}\n".format(0)) # nmat+1
+	f.write("BoundaryCondition 3 loadTimeFunction 2 dofs 3 1 2 3 values 3 0. 0. 0.1 set {}\n".format(0)) # nmat+2
+	f.write("StructTemperatureLoad 4 loadTimeFunction 1 Components 2 {} 0.0\n".format(-1000.0))
 	f.write("ConstantFunction 1 f(t) 1.0\n")
 	f.write("ConstantFunction 2 f(t) 1.0\n")
 
