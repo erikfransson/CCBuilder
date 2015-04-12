@@ -10,7 +10,7 @@ vol_frac_goal = 0.8
 # Cube size:
 L = 5.
 
-# Number of voxels
+M = 20
 M = 120
 delta_x = L/M
 
@@ -54,47 +54,75 @@ contiguity_0 = sum_gb_voxels_0 / np.float(sum_gb_voxels_0 + np.sum(interface_vox
 
 ccb.write_hdf5('testfile_0.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_0, phases_0, good_voxels_0, euler_angles_0, surface_voxels_0, gb_voxels_0, interface_voxels_0, overlaps_0)
 
-# Make new copies to play with
-grain_ids_1 = grain_ids_0.copy()
-gb_voxels_1 = gb_voxels_0.copy()
+# Make new copies to play with the unlimited monte carle potts simulation.
+if False:
+    grain_ids_1 = grain_ids_0.copy()
+    gb_voxels_1 = gb_voxels_0.copy()
+    
+    start_time = time.time()
+    ccb_c.make_mcp_unlim(M, grain_ids_1, gb_voxels_1, mc_steps, kBT)
+    print np.str(time.time() - start_time) + " seconds"
+    
+    surface_voxels_1, gb_voxels_1, interface_voxels_1 = ccb_c.calc_surface_prop(M, grain_ids_1)
+    phases_1, good_voxels_1, euler_angles_1, phase_volumes_1, grain_volumes_1 = ccb_c.calc_grain_prop(M, grain_ids_1, trunc_triangles)
+    
+    vol_frac_WC_1 = phase_volumes_1[1]/np.float(np.sum(phase_volumes_1))
+    vol_frac_Co_1 = 1 - vol_frac_WC_1
+    mass_frac_WC_1 = ccb.mass_fraction(vol_frac_WC_1)
+    d_eq_1 = ccb.volume_to_eq_d(grain_volumes_1*delta_x**3)
+    
+    sum_gb_voxels_1 = np.sum(gb_voxels_1)
+    contiguity_1 = sum_gb_voxels_1 / np.float(sum_gb_voxels_1 + np.sum(interface_voxels_1))
+    
+    ccb.write_hdf5('testfile_1.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_1, phases_1, good_voxels_1, euler_angles_1, surface_voxels_1, gb_voxels_1, interface_voxels_1, overlaps_0)
+    
+# Make new copies to play with the bounded monte carlo potts simulation.
+if True:
+    grain_ids_2 = grain_ids_0.copy()
+    gb_voxels_2 = gb_voxels_0.copy()
 
-start_time = time.time()
-ccb_c.make_mcp_unlim(M, grain_ids_1, gb_voxels_1, mc_steps, kBT)
-print np.str(time.time() - start_time) + " seconds"
+    start_time = time.time()
+    ccb_c.make_mcp_bound(M, grain_ids_2, gb_voxels_2, voxel_indices_0, mc_steps, kBT)
+    print np.str(time.time() - start_time) + " seconds"
+    
+    surface_voxels_2, gb_voxels_2_1, interface_voxels_2 = ccb_c.calc_surface_prop(M, grain_ids_2)
+    phases_2, good_voxels_2, euler_angles_2, phase_volumes_2, grain_volumes_2 = ccb_c.calc_grain_prop(M, grain_ids_2, trunc_triangles)
+    
+    vol_frac_WC_2 = phase_volumes_2[1]/np.float(np.sum(phase_volumes_2))
+    vol_frac_Co_2 = 1 - vol_frac_WC_2
+    mass_frac_WC_2 = ccb.mass_fraction(vol_frac_WC_2)
+    d_eq_2 = ccb.volume_to_eq_d(grain_volumes_2*delta_x**3)
+    
+    sum_gb_voxels_2 = np.sum(gb_voxels_2)
+    contiguity_2 = sum_gb_voxels_2 / np.float(sum_gb_voxels_2 + np.sum(interface_voxels_2))
 
-surface_voxels_1, gb_voxels_1, interface_voxels_1 = ccb_c.calc_surface_prop(M, grain_ids_1)
-phases_1, good_voxels_1, euler_angles_1, phase_volumes_1, grain_volumes_1 = ccb_c.calc_grain_prop(M, grain_ids_1, trunc_triangles)
-
-vol_frac_WC_1 = phase_volumes_1[1]/np.float(np.sum(phase_volumes_1))
-vol_frac_Co_1 = 1 - vol_frac_WC_1
-mass_frac_WC_1 = ccb.mass_fraction(vol_frac_WC_1)
-d_eq_1 = ccb.volume_to_eq_d(grain_volumes_1*delta_x**3)
-
-sum_gb_voxels_1 = np.sum(gb_voxels_1)
-contiguity_1 = sum_gb_voxels_1 / np.float(sum_gb_voxels_1 + np.sum(interface_voxels_1))
-
-ccb.write_hdf5('testfile_1.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_1, phases_1, good_voxels_1, euler_angles_1, surface_voxels_1, gb_voxels_1, interface_voxels_1, overlaps_0)
-
-# Make new copies to play with
-grain_ids_2 = grain_ids_0.copy()
-gb_voxels_2 = gb_voxels_0.copy()
-
-start_time = time.time()
-ccb_c.make_mcp_bound(M, grain_ids_2, gb_voxels_2, voxel_indices_0, mc_steps, kBT)
-print np.str(time.time() - start_time) + " seconds"
-
-surface_voxels_2, gb_voxels_2_1, interface_voxels_2 = ccb_c.calc_surface_prop(M, grain_ids_2)
-phases_2, good_voxels_2, euler_angles_2, phase_volumes_2, grain_volumes_2 = ccb_c.calc_grain_prop(M, grain_ids_2, trunc_triangles)
-
-vol_frac_WC_2 = phase_volumes_2[1]/np.float(np.sum(phase_volumes_2))
-vol_frac_Co_2 = 1 - vol_frac_WC_2
-mass_frac_WC_2 = ccb.mass_fraction(vol_frac_WC_2)
-d_eq_2 = ccb.volume_to_eq_d(grain_volumes_2*delta_x**3)
-
-sum_gb_voxels_2 = np.sum(gb_voxels_2)
-contiguity_2 = sum_gb_voxels_2 / np.float(sum_gb_voxels_2 + np.sum(interface_voxels_2))
-
-ccb.write_hdf5('testfile_2.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2, phases_2, good_voxels_2, euler_angles_2, surface_voxels_2, gb_voxels_2, interface_voxels_2, overlaps_0)
+    ccb.write_hdf5('testfile_2.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2, phases_2, good_voxels_2, euler_angles_2, surface_voxels_2, gb_voxels_2, interface_voxels_2, overlaps_0)
+    ccb.write_oofem('testfile_2', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2)
 
 
-ccb.write_oofem('testfile_2', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2)
+# Make new copies to play with the bounded monte carlo potts simulation with stray voxel cleanup.
+if True:
+    grain_ids_3 = grain_ids_0.copy()
+    gb_voxels_3 = gb_voxels_0.copy()
+
+    start_time = time.time()
+    ccb_c.make_mcp_bound(M, grain_ids_3, gb_voxels_3, voxel_indices_0, mc_steps, kBT)
+    print np.str(time.time() - start_time) + " seconds"
+
+    start_time = time.time()
+    ccb_c.stray_cleanup(M, grain_ids_3)
+    print np.str(time.time() - start_time) + " seconds"
+
+    surface_voxels_3, gb_voxels_3_1, interface_voxels_3 = ccb_c.calc_surface_prop(M, grain_ids_3)
+    phases_3, good_voxels_3, euler_angles_3, phase_volumes_3, grain_volumes_3 = ccb_c.calc_grain_prop(M, grain_ids_3, trunc_triangles)
+    
+    vol_frac_WC_3 = phase_volumes_3[1]/np.float(np.sum(phase_volumes_3))
+    vol_frac_Co_3 = 1 - vol_frac_WC_3
+    mass_frac_WC_3 = ccb.mass_fraction(vol_frac_WC_3)
+    d_eq_3 = ccb.volume_to_eq_d(grain_volumes_3*delta_x**3)
+
+    sum_gb_voxels_3 = np.sum(gb_voxels_3)
+    contiguity_3 = sum_gb_voxels_3 / np.float(sum_gb_voxels_3 + np.sum(interface_voxels_3))
+
+    ccb.write_hdf5('testfile_3.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_3, phases_3, good_voxels_3, euler_angles_3, surface_voxels_3, gb_voxels_3, interface_voxels_3, overlaps_0)
+    ccb.write_oofem('testfile_2', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2)
