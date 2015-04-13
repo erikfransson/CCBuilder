@@ -439,56 +439,69 @@ def calc_mli(int M, double L, np.ndarray[int, ndim=1] grain_ids):
 	return cont, d_WC, d_Co
 
 # Cleanup of stray voxels that appear due to discretization errors.
-def make_mcp_unlim(int M, np.ndarray[int, ndim=1] grain_ids):
+def stray_cleanup(int M, np.ndarray[int, ndim=1] grain_ids, int min_n=3, int iterations=3):
 	print "Stray voxel cleanup"
 	
 	cdef:
 		int M2, M3, i, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz
-		int nb_indices[6]
-		int nb_ids[6]
-		int nb_count[6], nb_max
-        int n;
+		int nb_max
+		int n
 	
+	nb_indices = np.zeros(18, dtype=int)
+	nb_ids = np.zeros(18, dtype=int)
+	nb_count = np.zeros(18, dtype=int)
 	M2 = M*M
 	M3 = M2*M
 	
-	for ix in range(M):
-	    for iy in range(M):
-	        for iz in range(M):
-
-                gb_voxel_index = ix + iy*M + iz*M2
-    	        gb_voxel_id = grain_ids[nb_indices[i]]
-			
-    			# right, left, forward, backward, up, down - neighbours
-    			nb_indices[0] = int_mod(ix+1, M) + iy*M + iz*M2
-    			nb_indices[1] = int_mod(ix-1, M) + iy*M + iz*M2
-    			nb_indices[2] = ix + int_mod(iy+1, M)*M + iz*M2
-    			nb_indices[3] = ix + int_mod(iy-1, M)*M + iz*M2
-    			nb_indices[4] = ix + iy*M + int_mod(iz+1, M)*M2
-    			nb_indices[5] = ix + iy*M + int_mod(iz-1, M)*M2
-			
-    			# Clear and populate the *set* of different neighbor indices that are allowed; id > 1, i.e. not binder
-    			for i in range(6):
-    				nb_ids[i] = grain_ids[nb_indices[i]]
-                    if gb_voxel_id == nb_ids[i]:
-                        n += 1
-
-                if n <= 1: # Checking for 1 or 0 neighbours.
-                    # Find the most common neighbor and use that instead.
-    			    for i in range(6):
-                        nb_count[i] = 0
-    			        for j in range(6):
-                            if nb_ids[i] == nb_ids[j]:
-                                nb_count[i] += 1
-                        nb_max = max(nb_count)
-                        for i in range(6):
-                            surrounding_id = nb_count[i]
-                            if surrounding_id == nb_max:
-                                break
-                    
-                    grain_ids[gb_voxel_index] = surrounding_id
-
-
+	for iteration in range(iterations):
+		print("iter", iteration)
+		for ix in range(M):
+			for iy in range(M):
+				for iz in range(M):
+					gb_voxel_index = ix + iy*M + iz*M2
+					gb_voxel_id = grain_ids[gb_voxel_index]
+				
+					# right, left, forward, backward, up, down - neighbours
+					nb_indices[0] = int_mod(ix+1, M) + iy*M + iz*M2
+					nb_indices[1] = int_mod(ix-1, M) + iy*M + iz*M2
+					nb_indices[2] = ix + int_mod(iy+1, M)*M + iz*M2
+					nb_indices[3] = ix + int_mod(iy-1, M)*M + iz*M2
+					# corners
+					nb_indices[4] = int_mod(ix+1, M) + int_mod(iy+1, M)*M + iz*M2
+					nb_indices[5] = int_mod(ix+1, M) + int_mod(iy-1, M)*M + iz*M2
+					nb_indices[6] = int_mod(ix-1, M) + int_mod(iy+1, M)*M + iz*M2
+					nb_indices[7] = int_mod(ix-1, M) + int_mod(iy-1, M)*M + iz*M2
+					# Layer above
+					nb_indices[8] = ix + iy*M + int_mod(iz+1, M)*M2
+					nb_indices[9] = ix + int_mod(iy+1, M)*M + int_mod(iz+1, M)*M2
+					nb_indices[10] = ix + int_mod(iy-1, M)*M + int_mod(iz+1, M)*M2
+					nb_indices[11] = int_mod(ix+1, M) + iy*M + int_mod(iz+1, M)*M2
+					nb_indices[12] = int_mod(ix-1, M) + iy*M + int_mod(iz+1, M)*M2
+					# Layer below
+					nb_indices[13] = ix + iy*M + int_mod(iz-1, M)*M2
+					nb_indices[14] = ix + int_mod(iy+1, M)*M + int_mod(iz-1, M)*M2
+					nb_indices[15] = ix + int_mod(iy-1, M)*M + int_mod(iz-1, M)*M2
+					nb_indices[16] = int_mod(ix+1, M) + iy*M + int_mod(iz-1, M)*M2
+					nb_indices[17] = int_mod(ix-1, M) + iy*M + int_mod(iz-1, M)*M2
+				
+					# Clear and populate the *set* of different neighbor indices that are allowed; id > 1, i.e. not binder
+					n = 0
+					for i in range(18):
+						nb_ids[i] = grain_ids[nb_indices[i]]
+						if gb_voxel_id == nb_ids[i]:
+							n += 1
+	
+					if n <= min_n: # Checking for 1 or 0 neighbours.
+						# Find the most common neighbor and use that instead.
+						for i in range(18):
+							nb_count[i] = 0
+							for j in range(18):
+								if nb_ids[i] == nb_ids[j]:
+									nb_count[i] += 1
+						surrounding_id = nb_ids[nb_count.argmax()]
+						print("switch", grain_ids[gb_voxel_index], "to", surrounding_id)
+						grain_ids[gb_voxel_index] = surrounding_id
+	
 # Monte Carlo of the Potts model with unlimited grains. gb_voxels must be consistent with grain_ids.
 def make_mcp_unlim(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, int steps, double kBT):
 	print "Making Monte Carlo steps"

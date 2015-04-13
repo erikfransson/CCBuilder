@@ -107,7 +107,7 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 	f.write("domain 3d\n")
 	f.write("outputmanager\n")
 	f.write("ndofman {0} nelem {1} nset {2} ncrosssect {3} nmat {3} nbc {4} nltf {5} nic 0\n".format(NX*NY*NZ, M[0]*M[1]*M[2],
-									nmat+5, nmat, 4, 2))
+									nmat+4, nmat, 4, 2))
 	node = 0
 	for nz in range(NX):
 		for ny in range(NY):
@@ -168,10 +168,10 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 			#f.write("IsoLE {} d 1. tAlpha {} E {} n {}\n".format(setcount+1, 6.2e-6, 719e9, 0.19))
 
 
-	#f.write("PrescribedGradient 1 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 {{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} set {}\n".format(nmat+3))
-	f.write("PrescribedGradientPeriodic 1 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 "+
-			"{{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} jump 3 {0} {1} {2} set {3} masterSet {4}\n".format(
-			spacing[0]*M[0], spacing[0]*M[1], spacing[0]*M[2], nmat+4, nmat+3))
+	f.write("PrescribedGradient 1 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 {{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} set {}\n".format(nmat+3))
+	#f.write("PrescribedGradientPeriodic 1 loadTimeFunction 1 dofs 3 1 2 3 gradient 3 3 "+
+	#		"{{0. 0.1 0.1; 0.1 0. 0.1; 0.1 0.1 0.}} jump 3 {0} {1} {2} set {3} masterSet {4}\n".format(
+	#		spacing[0]*M[0], spacing[0]*M[1], spacing[0]*M[2], nmat+4, nmat+3))
 	f.write("BoundaryCondition 2 loadTimeFunction 1 dofs 3 1 2 3 values 3 0. 0. 0.0 set {}\n".format(0)) # nmat+1
 	f.write("BoundaryCondition 3 loadTimeFunction 2 dofs 3 1 2 3 values 3 0. 0. 0.1 set {}\n".format(0)) # nmat+2
 	f.write("StructTemperatureLoad 4 loadTimeFunction 1 Components 2 {} 0.0\n".format(-1000.0))
@@ -193,7 +193,7 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 			f.write(" {}".format(nx + NX*ny + 1 + (NZ-1)*NX*NY))
 	f.write("\n")
 
-	f.write("Set {} elementboundaries {}".format(nmat+3, 2*(M[0]*M[1] + M[0]*M[2] + M[1]*M[2])))
+	f.write("Set {} elementboundaries {}".format(nmat+3, 2*2*(M[0]*M[1] + M[0]*M[2] + M[1]*M[2])))
 	# X-Y plane (facing -z):
 	sz = 0
 	for sy in range(M[1]):
@@ -209,9 +209,9 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 		for sy in range(M[1]):
 			sx = 0
 			f.write(" {} 6".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
-	f.write("\n")
+	#f.write("\n")
 
-	f.write("Set {} elementboundaries {}".format(nmat+4, 2*(M[0]*M[1] + M[0]*M[2] + M[1]*M[2])))
+	#f.write("Set {} elementboundaries {}".format(nmat+4, 2*(M[0]*M[1] + M[0]*M[2] + M[1]*M[2])))
 	# X-Y plane (facing +z):
 	sz = M[2]-1
 	for sy in range(M[1]):
@@ -229,7 +229,7 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 			f.write(" {} 4".format(M[0]*M[1]*sz + M[0]*sy + sx + 1))
 	f.write("\n")
 
-	f.write("Set {} nodes {{(1 {})}}".format(nmat+5, NX*NY*NZ))
+	f.write("Set {} nodes {{(1 {})}}".format(nmat+4, NX*NY*NZ))
 
 
 
