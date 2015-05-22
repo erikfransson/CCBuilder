@@ -12,8 +12,11 @@ Dream3D is a promising piece of software as it includes e.~g. functionality for 
 How to build
 -------------
 To build CCbuilder run 
+
 `python setup.py build_ext --inplace`
+
  and then you should be able to run the example
+
 `python make_cc.py`
 
 
@@ -33,5 +36,7 @@ There is a number of input parameters thats need to be set before.
   * Effective temperature kbT
 
 Next the grains are created by
+
 `prepare_triangles(vol_frac_goal, L)`
+
 where the position, size, shape and orientation of each grain is drawn from random distributions.

@@ -1,13 +1,12 @@
 #
 #
-# Some functions for computing the misorientation angle
+# Some scripts for computing the misorientation angle
 #
 #
 
 import numpy as np
 import math
-import GeometryTools as GT # Used for the rotation matrix utils.
-
+import GeometryTools as GT
 
 #
 # Finds a neighborList using circumcircle similar to how I think Sven tried to implement it.
@@ -39,7 +38,18 @@ def findNeighbors(trunc_triangles,L):
 				nb.append(j)
 		nbrList.append(np.array(nb))
 
+
 	return nbrList
+
+#
+# Find a neighborList using voxels.
+#
+def find_Neighbors_voxel():
+	print 'Implement me!'
+
+
+
+
 
 
 #
@@ -49,7 +59,7 @@ def findNeighbors(trunc_triangles,L):
 def compute_all_misorientation_001(trunc_triangles,nbrList):
 
 	angles=[]
-	print 'Computing misorientation angles 001'
+	print 'Computing misorientation angles'
 	for i,t in enumerate(trunc_triangles):
 		for j in xrange(len(nbrList[i])):
 		
@@ -59,11 +69,9 @@ def compute_all_misorientation_001(trunc_triangles,nbrList):
 			angles.append(angle)
 	
 	return angles
-
 #
 # Computes misorientation given a list of trunc_triangles and a neighborList
-# Using the net rotation  M_1^-1 * M_2, with a few symmetry operations.
-# This method might not be correct.
+# Using the net rotation  M_1^-1 * M_2
 #
 def compute_all_misorientation_net(trunc_triangles,nbrList):
 	symOps=[]
@@ -74,9 +82,9 @@ def compute_all_misorientation_net(trunc_triangles,nbrList):
 	symOps.append(GT.rot_matrix([0,0,-1],2*math.pi/3))
 	# 2 fold axis around y
 	symOps.append(GT.rot_matrix([0,1,0],math.pi))
-	
+	symOps=[]
 	angles=[]
-	print 'Computing misorientation angles net'
+	print 'Computing misorientation angles'
 	for i,t in enumerate(trunc_triangles):
 		for j in xrange(len(nbrList[i])):
 		
@@ -84,12 +92,31 @@ def compute_all_misorientation_net(trunc_triangles,nbrList):
 			angles.append(theta)
 	return angles
 
+
+
+#
+# One way of computing misorientation angle between two grains t1 t2.
+# Looking at how the [0,0,1] direction is changed
+#
+def compute_misorientation_001(t1,t2):
+	v1 = np.dot(t1.rot_matrix,[0,0,1])
+	v2 = np.dot(t2.rot_matrix,[0,0,1])
+	angle = math.acos(np.dot(v1,v2))* 180/math.pi
+	if angle > 90:
+		angle = 180-angle
+	return angle
+
+#
+# One way of computing misorientation angle between two grains t1 t2.
+# Using  Net rotation = g_b * g_a ^(-1)
+# Considering symmetries.
 def compute_misorientation_net(t1,t2,symmetry=[]):
 	rot1 = t1.rot_matrix
 	rot2 = t2.rot_matrix
-	rot2_inv = t2.rot_matrix
+	rot2_inv = np.linalg.inv(t2.rot_matrix)
 	
 	net_rotation=np.dot(rot1,rot2_inv)
+	
 	if len(symmetry)==0:	
 		theta,axis = GT.rotmatrix_to_axisangle(net_rotation)
 		return theta*180/math.pi
@@ -103,21 +130,78 @@ def compute_misorientation_net(t1,t2,symmetry=[]):
 		return np.min(angles)
 
 #
-# One way of computing misorientation angle between two grains t1 t2.
-# Looking at how the [0,0,1] direction is changed
+# Test function for misorientation, given two rotation matrices R1 and R2
 #
-#def compute_misorientation_001(t1,t2):
-#	v1 = np.dot(t1.rot_matrix,[0,0,1])
-#	v2 = np.dot(t2.rot_matrix,[0,0,1])
-#	angle = math.acos(np.dot(v1,v2))* 180/math.pi
-#	#if angle > 90:
-#	#	angle = 180-angle
-#	return angle
+def test_misorientation(R1,R2,symmetry=[]):
+	R2inv = np.linalg.inv(R2)
+	net_rotation=np.dot(R1,R2inv)
+	
+	if len(symmetry)==0:	
+		theta,axis = GT.rotmatrix_to_axisangle(net_rotation)
+		return theta*180/math.pi
+	else:
+		angles=[]
+		for i in xrange(len(symmetry)):
+			for j in xrange(len(symmetry)):	
+				theta,axis = GT.rotmatrix_to_axisangle( np.dot( np.dot(symmetry[i],R1),np.dot(R2inv,symmetry[j]) )	)
+				angles.append(theta*180/math.pi)
+		
+		return np.min(angles)
+
+
+
 
 #
-# One way of computing misorientation angle between two grains t1 t2.
-# Using  Net rotation = g_b * g_a ^(-1)
-# Considering symmetries.
+# Plot vertices
 #
+def plot_vertices(ax,vertices,t):
+		
+	x0=vertices[:,0]
+	x0=np.append(x0,vertices[0][0])
+	x0=np.append(x0,x0)
+	y0=vertices[:,1]
+	y0=np.append(y0,vertices[0][1])
+	y0=np.append(y0,y0)
+	z0=vertices[:,2]
+	z0=np.append(z0,vertices[0][2])
+	z0=np.append(z0,-z0)
+	ax.plot(x0,y0,z0,'b')
+	for i in range(6):
+		ax.plot([x0[i],x0[i]],[y0[i],y0[i]],[z0[i],z0[i]+t],'b')
+	
+#
+# Plot real vertices
+#
+def plot_vertices_real(ax,vertices_real):
+	x1 = []
+	y1 = []
+	z1 = []
+	x2 = []
+	y2 = []
+	z2 = []
+	for i in range(6):
+		x1.append(vertices_real[i*2][0])
+		y1.append(vertices_real[i*2][1])
+		z1.append(vertices_real[i*2][2])
+		x2.append(vertices_real[i*2+1][0])
+		y2.append(vertices_real[i*2+1][1])
+		z2.append(vertices_real[i*2+1][2])
+
+	x1.append(vertices_real[0][0])
+	y1.append(vertices_real[0][1])
+	z1.append(vertices_real[0][2])
+
+	x2.append(vertices_real[1][0])
+	y2.append(vertices_real[1][1])
+	z2.append(vertices_real[1][2])
+	
+	
+	ax.plot(x1,y1,z1,'b')	
+	ax.plot(x2,y2,z2,'b')
+	for i in range(6):
+		ax.plot([x1[i],x2[i]],[y1[i],y2[i]],[z1[i],z2[i]],'b')
+	
+
+
 
 
