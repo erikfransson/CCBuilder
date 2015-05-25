@@ -11,6 +11,8 @@ Dream3D is a promising piece of software as it includes e.~g. functionality for 
 
 How to build
 -------------
+CCBuilder is written in python with the computational expensive functions implemented in Cython.
+
 To build CCbuilder run 
 
 `python setup.py build_ext --inplace`
@@ -45,4 +47,13 @@ Then the midpoints of the grains are optimized, ie trying to separate them as mu
 
 `ccb.optimize_midpoints(L, trunc_triangles)`
 
-potential 
+which leads to a better packing of the grains. Next the voxels are populate meaning each voxel is assigned to a grain or the binder by
+
+`voxel_indices_xyz = ccb_c.make_voxel_indices(L, M, trunc_triangles)`
+
+`ccb_c.populate_voxels(M, voxel_indices_xyz, nr_tries, delta)`
+
+where voxel_indices_xyz contains which voxels lies inside each grain and the call populate_voxels will place the grains onto the grid. The algorithm makes N tries to insert a grain at approximately its midpoint position. The position which give rise to minimum overlap with the other grains is chosen. 
+
+
+
