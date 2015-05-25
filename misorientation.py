@@ -41,6 +41,58 @@ def findNeighbors(trunc_triangles,L):
 
 	return nbrList
 
+def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
+    """
+    Voxel based computations
+    """
+    
+    print 'Computing voxel based misorientation'
+    symOps=[]
+    # Unity
+    symOps.append(np.eye(3))
+    # 3 fold axis around z
+    symOps.append(GT.rot_matrix([0,0,1],2*math.pi/3))
+    symOps.append(GT.rot_matrix([0,0,-1],2*math.pi/3))
+    # 2 fold axis around y
+    symOps.append(GT.rot_matrix([0,1,0],math.pi))
+
+    from collections import defaultdict
+    areas = defaultdict(int)
+    angles = defaultdict(float)
+    #angles=[]
+    for ix in range(M[0]):
+        nx = (ix + 1) % M[0]
+        for iy in range(M[1]):
+            ny = (ix + 1) % M[1]
+            for iz in range(M[2]):
+                nz = (ix + 1) % M[2]
+                ig = grain_ids[ix + iy * M[0] + iz * (M[0] + M[1])]
+
+                # Check all three neighbours (in the + side)
+                ng = grain_ids[nx + iy * M[0] + iz * (M[0] + M[1])]
+                if ig != ng:
+                    areas[(ig, ng)] += 1
+                    if (ig, ng) not in angles:
+                        theta = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
+                        angles[(ig, ng)] = theta
+                    #angles.append(theta)
+
+                ng = grain_ids[ix + ny * M[0] + iz * (M[0] + M[1])]
+                if ig != ng:
+                    areas[(ig, ng)] += 1
+                    if (ig, ng) not in angles:
+                        theta = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
+                        angles[(ig, ng)] = theta
+                    #angles.append(theta)
+
+                ng = grain_ids[ix + iy * M[0] + nz * (M[0] + M[1])]
+                if ig != ng:
+                    areas[(ig, ng)] += 1
+                    if (ig, ng) not in angles:
+                        theta = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
+                        angles[(ig, ng)] = theta
+                    #angles.append(theta)
+    return angles, areas
 
 #
 # Computes misorientation given a list of trunc_trinagles and a neighborList

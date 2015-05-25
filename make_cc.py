@@ -11,7 +11,7 @@ vol_frac_goal = (1 - 0.03)
 # Cube size:
 L = 5.
 
-M = 10
+M = 50
 delta_x = L/M
 
 mc_steps = 100*M**3
@@ -133,10 +133,11 @@ if True:
     print("generated volume fraction of Co (before tweaks):", grain_fraction[0] )
 
 # Misorientation:
-nbrList = findNeighbors(trunc_triangles,L)
-angles_001 = compute_all_misorientation_001(trunc_triangles,nbrList)
+#nbrList = findNeighbors(trunc_triangles,L)
+#angles_001 = compute_all_misorientation_001(trunc_triangles,nbrList)
 #print angles_001
-angles_net = compute_all_misorientation_net(trunc_triangles,nbrList)
+#angles_net = compute_all_misorientation_net(trunc_triangles,nbrList)
 
-
+angles, areas = compute_all_misorientation_voxel(trunc_triangles, grain_ids_3, [M]*3)
+#print angles, areas
 
