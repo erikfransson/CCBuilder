@@ -4,13 +4,14 @@ import CCBuilder as ccb
 import CCBuilder_c as ccb_c
 import cPickle as pickle
 import time
+from misorientation import *
 
 print "Running"
-vol_frac_goal = 0.8
+vol_frac_goal = (1 - 0.03)
 # Cube size:
-L = 3.
+L = 5.
 
-M = 100
+M = 50
 delta_x = L/M
 
 mc_steps = 100*M**3
@@ -52,6 +53,11 @@ sum_gb_voxels_0 = np.sum(gb_voxels_0)
 contiguity_0 = sum_gb_voxels_0 / np.float(sum_gb_voxels_0 + np.sum(interface_voxels_0))
 
 ccb.write_hdf5('testfile_0.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_0, phases_0, good_voxels_0, euler_angles_0, surface_voxels_0, gb_voxels_0, interface_voxels_0, overlaps_0)
+
+# Compute actual volume fraction:
+grain_fraction = ccb.volume_distribution(grain_ids_0)
+print grain_fraction
+print("generated volume fraction of Co (before tweaks):", grain_fraction[0] )
 
 # Make new copies to play with the unlimited monte carle potts simulation.
 if False:
@@ -120,3 +126,39 @@ if True:
 
     ccb.write_hdf5('testfile_3.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_3, phases_3, good_voxels_3, euler_angles_3, surface_voxels_3, gb_voxels_3, interface_voxels_3, overlaps_0)
     ccb.write_oofem('testfile_2', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2)
+
+    # Compute actual volume fraction:
+    grain_fraction = ccb.volume_distribution(grain_ids_2)
+    print grain_fraction
+    print("generated volume fraction of Co (before tweaks):", grain_fraction[0] )
+
+# Misorientation:
+#nbrList = findNeighbors(trunc_triangles,L)
+#angles_001 = compute_all_misorientation_001(trunc_triangles,nbrList)
+#print angles_001
+#angles_net = compute_all_misorientation_net(trunc_triangles,nbrList)
+
+angles, areas = compute_all_misorientation_voxel(trunc_triangles, grain_ids_3, [M]*3)
+#print angles, areas
+
+
+
+data_angles=[]
+for key in angles.keys():
+	data_angles.append(angles[key])
+	print angles[key]
+
+import matplotlib.pyplot as plt
+num_bins = 30
+plt.rcParams.update({'font.size': 20})
+
+fig=plt.figure(num=None, figsize=(12, 7), dpi=80, facecolor='w', edgecolor='k')
+n, bins, patches = plt.hist(data_angles, num_bins, normed=1, facecolor='green', alpha=0.5)
+plt.xlabel('Angle')
+plt.ylabel('Probability')
+
+plt.show()
+
+
+
+

@@ -40,3 +40,9 @@ Next the grains are created by
 `prepare_triangles(vol_frac_goal, L)`
 
 where the position, size, shape and orientation of each grain is drawn from random distributions.
+
+Then the midpoints of the grains are optimized, ie trying to separate them as much as possible, by 
+
+`ccb.optimize_midpoints(L, trunc_triangles)`
+
+potential 
