@@ -59,7 +59,6 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
     from collections import defaultdict
     areas = defaultdict(int)
     angles = defaultdict(float)
-    #angles=[]
     for ix in range(M[0]):
         nx = (ix + 1) % M[0]
         for iy in range(M[1]):
@@ -68,30 +67,18 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
                 nz = (ix + 1) % M[2]
                 ig = grain_ids[ix + iy * M[0] + iz * (M[0] + M[1])]
 
+                def do_compute(ng):
+                    if ig != ng:
+                        index = (min(ig, ng), max(ig, ng))
+                        areas[index] += 1
+                        if index not in angles:
+                            angles[index] = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
+
                 # Check all three neighbours (in the + side)
-                ng = grain_ids[nx + iy * M[0] + iz * (M[0] + M[1])]
-                if ig != ng:
-                    areas[(ig, ng)] += 1
-                    if (ig, ng) not in angles:
-                        theta = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
-                        angles[(ig, ng)] = theta
-                    #angles.append(theta)
+                do_compute(grain_ids[nx + iy * M[0] + iz * (M[0] + M[1])])
+                do_compute(grain_ids[ix + ny * M[0] + iz * (M[0] + M[1])])
+                do_compute(grain_ids[ix + iy * M[0] + nz * (M[0] + M[1])])
 
-                ng = grain_ids[ix + ny * M[0] + iz * (M[0] + M[1])]
-                if ig != ng:
-                    areas[(ig, ng)] += 1
-                    if (ig, ng) not in angles:
-                        theta = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
-                        angles[(ig, ng)] = theta
-                    #angles.append(theta)
-
-                ng = grain_ids[ix + iy * M[0] + nz * (M[0] + M[1])]
-                if ig != ng:
-                    areas[(ig, ng)] += 1
-                    if (ig, ng) not in angles:
-                        theta = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
-                        angles[(ig, ng)] = theta
-                    #angles.append(theta)
     return angles, areas
 
 #
