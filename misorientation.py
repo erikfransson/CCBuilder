@@ -53,8 +53,12 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
     # 3 fold axis around z
     symOps.append(GT.rot_matrix([0,0,1],2*math.pi/3))
     symOps.append(GT.rot_matrix([0,0,-1],2*math.pi/3))
+    # 2 fold axis around (sqrt(3),-1,0)
+    symOps.append(GT.rot_matrix([math.sqrt(3),-1,0],math.pi))	
     # 2 fold axis around y
     symOps.append(GT.rot_matrix([0,1,0],math.pi))
+    # 2 fold axis around (sqrt(3),1,0)
+    symOps.append(GT.rot_matrix([math.sqrt(3),1,0],math.pi))	
 
     from collections import defaultdict
     areas = defaultdict(int)
@@ -82,6 +86,29 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
                 do_compute(grain_ids[ix + iy * M[0] + nz * (M[0] * M[1])])
 
     return angles, areas
+
+#
+# Updated version of compute_misorientation_net
+#
+def compute_misorientation_net(t1,t2,symmetry=[]):
+	R1=t1.rot_matrix
+	R2=t2.rot_matrix
+	R2inv = np.linalg.inv(R2)
+	net_rotation=np.dot(R1,R2inv)
+	
+	if len(symmetry)==0:	
+		theta,axis = GT.rotmatrix_to_axisangle(net_rotation)
+		return theta*180/math.pi
+	else:
+		angles=[]
+		for i in xrange(len(symmetry)):
+			for j in xrange(len(symmetry)):	
+				theta,axis = GT.rotmatrix_to_axisangle( np.dot( np.dot(symmetry[i],R1),np.dot(R2inv,symmetry[j]) )	)
+				angles.append(theta*180/math.pi)
+		
+		return np.min(angles)
+
+
 
 #
 # Computes misorientation given a list of trunc_trinagles and a neighborList
@@ -125,40 +152,6 @@ def compute_all_misorientation_net(trunc_triangles,nbrList):
 			angles.append(theta)
 	return angles
 
-def compute_misorientation_net(t1,t2,symmetry=[]):
-	rot1 = t1.rot_matrix
-	rot2 = t2.rot_matrix
-	rot2_inv = t2.rot_matrix
-	
-	net_rotation=np.dot(rot1,rot2_inv)
-	if len(symmetry)==0:	
-		theta,axis = GT.rotmatrix_to_axisangle(net_rotation)
-		return theta*180/math.pi
-	else:
-		angles=[]
-		for i in xrange(len(symmetry)):
-			for j in xrange(len(symmetry)):	
-				theta,axis = GT.rotmatrix_to_axisangle( np.dot( np.dot(rot1,symmetry[i]),np.dot(rot2_inv,symmetry[j]) )	)
-				angles.append(theta*180/math.pi)
-		
-		return np.min(angles)
 
-#
-# One way of computing misorientation angle between two grains t1 t2.
-# Looking at how the [0,0,1] direction is changed
-#
-#def compute_misorientation_001(t1,t2):
-#	v1 = np.dot(t1.rot_matrix,[0,0,1])
-#	v2 = np.dot(t2.rot_matrix,[0,0,1])
-#	angle = math.acos(np.dot(v1,v2))* 180/math.pi
-#	#if angle > 90:
-#	#	angle = 180-angle
-#	return angle
-
-#
-# One way of computing misorientation angle between two grains t1 t2.
-# Using  Net rotation = g_b * g_a ^(-1)
-# Considering symmetries.
-#
 
 
