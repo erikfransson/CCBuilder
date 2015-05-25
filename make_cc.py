@@ -141,24 +141,3 @@ if True:
 angles, areas = compute_all_misorientation_voxel(trunc_triangles, grain_ids_3, [M]*3)
 #print angles, areas
 
-
-
-data_angles=[]
-for key in angles.keys():
-	data_angles.append(angles[key])
-	print angles[key]
-
-import matplotlib.pyplot as plt
-num_bins = 30
-plt.rcParams.update({'font.size': 20})
-
-fig=plt.figure(num=None, figsize=(12, 7), dpi=80, facecolor='w', edgecolor='k')
-n, bins, patches = plt.hist(data_angles, num_bins, normed=1, facecolor='green', alpha=0.5)
-plt.xlabel('Angle')
-plt.ylabel('Probability')
-
-plt.show()
-
-
-
-
