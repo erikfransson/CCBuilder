@@ -53,38 +53,37 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
     # 3 fold axis around z
     symOps.append(GT.rot_matrix([0,0,1],2*math.pi/3))
     symOps.append(GT.rot_matrix([0,0,-1],2*math.pi/3))
-	# 2 fold axis around (sqrt(3),-1,0)
+    # 2 fold axis around (sqrt(3),-1,0)
     symOps.append(GT.rot_matrix([math.sqrt(3),-1,0],math.pi))	
-	# 2 fold axis around y
+    # 2 fold axis around y
     symOps.append(GT.rot_matrix([0,1,0],math.pi))
-	# 2 fold axis around (sqrt(3),1,0)
+    # 2 fold axis around (sqrt(3),1,0)
     symOps.append(GT.rot_matrix([math.sqrt(3),1,0],math.pi))	
 
-	
     from collections import defaultdict
     areas = defaultdict(int)
     angles = defaultdict(float)
     for ix in range(M[0]):
         nx = (ix + 1) % M[0]
         for iy in range(M[1]):
-            ny = (ix + 1) % M[1]
+            ny = (iy + 1) % M[1]
             for iz in range(M[2]):
-                nz = (ix + 1) % M[2]
-                ig = grain_ids[ix + iy * M[0] + iz * (M[0] + M[1])]
+                nz = (iz + 1) % M[2]
+                ig = grain_ids[ix + iy * M[0] + iz * (M[0] * M[1])]
+
+                if ig == 1: continue # Skip the Co-phase
 
                 def do_compute(ng):
                     if ig != ng:
                         index = (min(ig, ng), max(ig, ng))
                         areas[index] += 1
-
                         if index not in angles:
-                            angles[index] = compute_misorientation_net(trunc_triangles[ig], trunc_triangles[ng], symOps)
+                            angles[index] = compute_misorientation_net(trunc_triangles[ig-2], trunc_triangles[ng-2], symOps)
 
                 # Check all three neighbours (in the + side)
-                #print ix,iy,iz,nx,ny,nz
-                do_compute(grain_ids[nx + iy * M[0] + iz * (M[0] + M[1])])
-                do_compute(grain_ids[ix + ny * M[0] + iz * (M[0] + M[1])])
-               	do_compute(grain_ids[ix + iy * M[0] + nz * (M[0] + M[1])])
+                do_compute(grain_ids[nx + iy * M[0] + iz * (M[0] * M[1])])
+                do_compute(grain_ids[ix + ny * M[0] + iz * (M[0] * M[1])])
+                do_compute(grain_ids[ix + iy * M[0] + nz * (M[0] * M[1])])
 
     return angles, areas
 
