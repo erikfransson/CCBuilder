@@ -7,7 +7,7 @@ import time
 from misorientation import *
 
 print "Running"
-vol_frac_goal = (1 - 0.03)
+vol_frac_goal = (1 - 0.178)
 # Cube size:
 L = 5.
 np.random.seed(0)
@@ -22,6 +22,7 @@ nr_tries = 2500
 
 # Move max 0.75 mu in any direction
 delta = int(0.75 / delta_x)
+print delta, delta_x
 nr_tries = 2500
 
 # to avoid confusion
@@ -32,14 +33,14 @@ mc_steps = np.int(mc_steps)
 kBT = np.double(kBT)
 nr_tries = np.int(nr_tries)
 
-trunc_triangles = ccb.prepare_triangles(vol_frac_goal, L)
+trunc_triangles = ccb.prepare_triangles(1.0, L) # Using 1.0 instead of vol_frac_goal in order to obtain enough inputs.
 ccb.optimize_midpoints(L, trunc_triangles)
 
 with open('trunc_triangles_0.data', 'wb') as f:
 	pickle.dump(L, f, pickle.HIGHEST_PROTOCOL)
 	pickle.dump(trunc_triangles, f, pickle.HIGHEST_PROTOCOL)
 
-grain_ids_0, overlaps_0, voxel_indices_0 = ccb_c.populate_voxels(M, L, trunc_triangles, nr_tries, delta)
+grain_ids_0, overlaps_0, voxel_indices_0 = ccb_c.populate_voxels(M, L, trunc_triangles, nr_tries, delta, vol_frac_goal)
 
 phases_0, good_voxels_0, euler_angles_0, phase_volumes_0, grain_volumes_0 = ccb_c.calc_grain_prop(M, grain_ids_0, trunc_triangles)
 surface_voxels_0, gb_voxels_0, interface_voxels_0 = ccb_c.calc_surface_prop(M, grain_ids_0)
@@ -129,8 +130,8 @@ if True:
 
     # Compute actual volume fraction:
     grain_fraction = ccb.volume_distribution(grain_ids_2)
-    print grain_fraction
-    print "generated volume fraction of Co (after tweaks):", grain_fraction[0]
+    print "generated volume fraction of Co (after tweaks):", grain_fraction[0] / float(M**3)
+    #print grain_fraction
 
 # Misorientation:
 #nbrList = findNeighbors(trunc_triangles,L)

@@ -172,7 +172,7 @@ def make_voxel_indices(double L, int M, list trunc_triangles):
 	return voxel_indices
 
 # Make N_tries attempts to place each grain with minimum overlap with existing grains. The position is varied randomly within [-delta,+delta] from the original position. The function will not touch the list voxel_indices_xyz and it will hence not be altered by the attempts. Returns a sorted list of indices (which is not separated in x,y,z components) to use in make_mcp_bound. The indices of the returned list correspond to optimal grain positions.
-def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delta):
+def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delta, double goal_fraction):
 	print "Populating voxels"
 
 	voxel_indices_xyz = make_voxel_indices(L, M, trunc_triangles)
@@ -263,12 +263,17 @@ def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delt
 			elif grain_ids[index] > 1: # claimed, so add overlap
 				overlaps[index] += 1
 		
-		print "grain {}: WC fraction: {}, tries: {} delta: {} {} {}".format(i, wc_voxels / np.double(M3), n_tries, delta_x, delta_y, delta_z)
 		voxel_indices_i.sort()
 		voxel_indices.append(voxel_indices_i)
 
 		# Move the truncated triangle to the right position as well:
 		trunc_triangles[i].midpoint += [delta_x, delta_y, delta_z]
+		
+		print "grain {}: WC fraction: {}, tries: {} delta: {} {} {}".format(i, wc_voxels / np.double(M3), n_tries, delta_x, delta_y, delta_z)
+
+		if wc_voxels > M3 * goal_fraction:
+			del trunc_triangles[(i+1):]
+			break
 	
 	free(voxel_indices_c)
 	free(voxel_indices_c_len)
