@@ -25,7 +25,7 @@ To build CCbuilder run
 
 Work flow
 ----------
-There is a number of input parameters thats need to be set before.
+There is a number of input parameters that need to be set in order to run CCbuilder.
 
 * Volume fraction goal, vol_frac_goal
 * System size, L
@@ -37,7 +37,8 @@ There is a number of input parameters thats need to be set before.
   * Number of MC steps
   * Effective temperature kbT
 
-Next the grains are created by
+Below the general work flow of CCBuilder is briefly discussed. 
+First the WC grains (truncated triangles objects) are prepared by
 
 `prepare_triangles(vol_frac_goal, L)`
 
@@ -55,5 +56,17 @@ which leads to a better packing of the grains. Next the voxels are populate mean
 
 where voxel_indices_xyz contains which voxels lies inside each grain and the call populate_voxels will place the grains onto the grid. The algorithm makes N tries to insert a grain at approximately its midpoint position. The position which give rise to minimum overlap with the other grains is chosen. 
 
+
++++ calc_surface_prop in order to otain GB_voxels for MCP run.
+
++++ Optional stray_cleanup, what does this function do?
+
++++ Monte Carlo potts simulations
++++++ The different variations of MCP, unlim bound overlap
+
++++calc_grain_prop to obtain some data to be written to output files
++++perhaps show how to compute vol_fracs, contiguity and misorientation given the output variables.
+
+The function `ccb.write_hdf5` writes the simulation data to an HDF5 file using the same format as Dream3D uses.
 
 
