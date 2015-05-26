@@ -25,6 +25,10 @@ To build CCbuilder run
 
 Work flow
 ----------
+Below the general work flow of CCBuilder is explained briefly.
+
+Input parameters
+~~~~~~~~~~~~~~~~~~
 There is a number of input parameters that need to be set in order to run CCbuilder.
 
 * Volume fraction goal, vol_frac_goal
@@ -37,18 +41,20 @@ There is a number of input parameters that need to be set in order to run CCbuil
   * Number of MC steps
   * Effective temperature kbT
 
-Below the general work flow of CCBuilder is briefly discussed. 
+
+Generating grains and populating voxels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 First the WC grains (truncated triangles objects) are prepared by
 
 `prepare_triangles(vol_frac_goal, L)`
 
 where the position, size, shape and orientation of each grain is drawn from random distributions.
-
-Then the midpoints of the grains are optimized, ie trying to separate them as much as possible, by 
+Then optionally the midpoints of the grains can be optimized, ie trying to separate them as much as possible, by 
 
 `ccb.optimize_midpoints(L, trunc_triangles)`
 
-which leads to a better packing of the grains. Next the voxels are populate meaning each voxel is assigned to a grain or the binder by
+which leads to a better packing of the grains. 
+Next the voxels are populate meaning each voxel is assigned to a grain or the binder by
 
 `voxel_indices_xyz = ccb_c.make_voxel_indices(L, M, trunc_triangles)`
 
@@ -57,12 +63,19 @@ which leads to a better packing of the grains. Next the voxels are populate mean
 where voxel_indices_xyz contains which voxels lies inside each grain and the call populate_voxels will place the grains onto the grid. The algorithm makes N tries to insert a grain at approximately its midpoint position. The position which give rise to minimum overlap with the other grains is chosen. 
 
 
+Corrections of unphysical artefacts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 +++ calc_surface_prop in order to otain GB_voxels for MCP run.
 
 +++ Optional stray_cleanup, what does this function do?
 
 +++ Monte Carlo potts simulations
 +++++ The different variations of MCP, unlim bound overlap
+
+Outputs and results
+~~~~~~~~~~~~~~~~~~~~
 
 +++calc_grain_prop to obtain some data to be written to output files
 +++perhaps show how to compute vol_fracs, contiguity and misorientation given the output variables.
