@@ -38,8 +38,7 @@ with open('trunc_triangles_0.data', 'wb') as f:
 	pickle.dump(L, f, pickle.HIGHEST_PROTOCOL)
 	pickle.dump(trunc_triangles, f, pickle.HIGHEST_PROTOCOL)
 
-voxel_indices_xyz = ccb_c.make_voxel_indices(L, M, trunc_triangles)
-grain_ids_0, overlaps_0, voxel_indices_0 = ccb_c.populate_voxels(M, voxel_indices_xyz, nr_tries, delta)
+grain_ids_0, overlaps_0, voxel_indices_0 = ccb_c.populate_voxels(M, L, trunc_triangles, nr_tries, delta)
 
 phases_0, good_voxels_0, euler_angles_0, phase_volumes_0, grain_volumes_0 = ccb_c.calc_grain_prop(M, grain_ids_0, trunc_triangles)
 surface_voxels_0, gb_voxels_0, interface_voxels_0 = ccb_c.calc_surface_prop(M, grain_ids_0)

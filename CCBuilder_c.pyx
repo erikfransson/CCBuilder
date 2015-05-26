@@ -182,12 +182,14 @@ def make_voxel_indices(double L, int M, list trunc_triangles):
 	return voxel_indices
 
 # Make N_tries attempts to place each grain with minimum overlap with existing grains. The position is varied randomly within [-delta,+delta] from the original position. The function will not touch the list voxel_indices_xyz and it will hence not be altered by the attempts. Returns a sorted list of indices (which is not separated in x,y,z components) to use in make_mcp_bound. The indices of the returned list correspond to optimal grain positions.
-def populate_voxels(int M, list voxel_indices_xyz, int N_tries, int delta):
+def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delta):
 	print "Populating voxels"
-	
+
 	# Seed rand with something
 	srand(random.randint(0, INT_MAX))
-	
+
+	voxel_indices_xyz = make_voxel_indices(L, M, trunc_triangles)
+
 	cdef:
 		int i, j, M2 = M*M, M3 = M2*M, ix, iy, iz, index, N_voxels
 		int N_grains = len(voxel_indices_xyz)
@@ -199,7 +201,7 @@ def populate_voxels(int M, list voxel_indices_xyz, int N_tries, int delta):
 		int overlap_j, overlap_min, n_tries, delta_x, delta_y, delta_z, delta_x_j, delta_y_j, delta_z_j
 		list voxel_indices = []
 		np.ndarray[int, ndim=1, mode="c"] voxel_indices_i
-	
+
 	voxel_indices_c = <int**> malloc(N_grains*sizeof(int*))
 	if not voxel_indices_c:
 		raise MemoryError()
@@ -275,6 +277,9 @@ def populate_voxels(int M, list voxel_indices_xyz, int N_tries, int delta):
 		
 		voxel_indices_i.sort()
 		voxel_indices.append(voxel_indices_i)
+
+		# Move the truncated triangle to the right position as well:
+		trunc_triangles[i].midpoint += [delta_x, delta_y, delta_z]
 	
 	free(voxel_indices_c)
 	free(voxel_indices_c_len)
