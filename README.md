@@ -1,16 +1,13 @@
-CCBuilder
-=========
+# CCBuilder
 
-Introduction
--------------
+## Introduction
 This is a short description of the effort to create a computer model of a three-dimensional (3D) microstructure resembling typical microstructures of fully-dense conventionally sintered WC-Co cemented carbides. The model is supposed to be used in finite-element method (FEM) modeling of WC-Co with cohesive zone models for WC/WC and WC/Co boundaries. The aim is to formulate a model that adequately reproduces the most important microstructural parameters in the WC-Co system. These include the volume fractions of the respective phases,  representative WC grain shapes,  WC grain size distributions, and the contiguity of the carbide phase.
 
 
 Dream3D is a promising piece of software as it includes e.~g. functionality for surface meshing. Therefore, the output data structure of CCBuilder is made fully compatible with Dream3D data files to allow importing data into Dream3D for further processing.
 
 
-How to build
--------------
+## How to build
 CCBuilder is written in python with the computational expensive functions implemented in Cython.
 
 To build CCbuilder run 
@@ -23,13 +20,11 @@ To build CCbuilder run
 
 
 
-Work flow
-----------
+## Work flow
 Below the general work flow of CCBuilder is explained briefly.
 
-Input parameters
-~~~~~~~~~~~~~~~~~~
-There is a number of input parameters that need to be set in order to run CCbuilder.
+### Input parameters
+There is a number of input parameters that need to be set before running CCbuilder.
 
 * Volume fraction goal, vol_frac_goal
 * System size, L
@@ -41,9 +36,9 @@ There is a number of input parameters that need to be set in order to run CCbuil
   * Number of MC steps
   * Effective temperature kbT
 
+Some of these might not be needed depending on your purpose.
 
-Generating grains and populating voxels
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### Generating grains and populating voxels
 First the WC grains (truncated triangles objects) are prepared by
 
 `prepare_triangles(vol_frac_goal, L)`
@@ -63,8 +58,7 @@ Next the voxels are populate meaning each voxel is assigned to a grain or the bi
 where voxel_indices_xyz contains which voxels lies inside each grain and the call populate_voxels will place the grains onto the grid. The algorithm makes N tries to insert a grain at approximately its midpoint position. The position which give rise to minimum overlap with the other grains is chosen. 
 
 
-Corrections of unphysical artefacts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### Corrections of unphysical artefacts
 
 
 +++ calc_surface_prop in order to otain GB_voxels for MCP run.
@@ -74,8 +68,8 @@ Corrections of unphysical artefacts
 +++ Monte Carlo potts simulations
 +++++ The different variations of MCP, unlim bound overlap
 
-Outputs and results
-~~~~~~~~~~~~~~~~~~~~
+### Outputs and results
+
 
 +++calc_grain_prop to obtain some data to be written to output files
 +++perhaps show how to compute vol_fracs, contiguity and misorientation given the output variables.
