@@ -7,7 +7,7 @@ import random
 import TruncatedTriangle
 
 from libc.math cimport sqrt, floor, exp
-from libc.stdlib cimport rand, RAND_MAX, srand, malloc, free
+from libc.stdlib cimport malloc, free
 from libc.limits cimport INT_MAX
 
 cdef inline int int_max(int a, int b):
@@ -23,7 +23,7 @@ cdef inline double mod(double x1, double x2):
 	return x1 - floor(x1 / x2) * x2
 
 cdef inline double random_double():
-	return <double> rand() / <double> RAND_MAX
+	return np.random.rand()
 
 # Assume that i2 > 0
 # C %-operator does not behave like I want it to
@@ -34,18 +34,8 @@ cdef inline long long longlong_mod(long long i1, long long i2):
 	return i1%i2 if i1 >= 0 else ((i1%i2) + i2) % i2
 
 # Returns a random integer in [min_i, max_i-1]
-cdef unsigned int rand_interval(unsigned int min_i, unsigned int max_i):
-	cdef unsigned int r
-	cdef unsigned int interval = max_i - min_i
-	cdef unsigned int buckets = RAND_MAX / interval
-	cdef unsigned int limit = buckets * interval
-	
-	while True:
-		r = rand();
-		if r < limit:
-			break
-	
-	return min_i + (r / buckets)
+cdef inline unsigned int rand_interval(unsigned int min_i, unsigned int max_i):
+	return np.random.randint(min_i, max_i)
 
 # The elements in A must be ordered
 cdef bint binary_search(int* A, int key, int imin, int imax):
@@ -185,14 +175,12 @@ def make_voxel_indices(double L, int M, list trunc_triangles):
 def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delta):
 	print "Populating voxels"
 
-	# Seed rand with something
-	srand(random.randint(0, INT_MAX))
-
 	voxel_indices_xyz = make_voxel_indices(L, M, trunc_triangles)
 
 	cdef:
 		int i, j, M2 = M*M, M3 = M2*M, ix, iy, iz, index, N_voxels
 		int N_grains = len(voxel_indices_xyz)
+		int wc_voxels = 0 # For counting the WC-fraction
 		np.ndarray[int, ndim=1, mode="c"] grain_ids = np.ones(dtype="int32", shape=(M3))
 		np.ndarray[char, ndim=1, mode="c"] overlaps = np.zeros(dtype="int8", shape=(M3))
 		int **voxel_indices_c
@@ -255,7 +243,6 @@ def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delt
 				if overlap_min == 0 or n_tries == N_tries:
 					break
 		
-		print "grain {}: tries: {} delta: {} {} {}".format(*(i, n_tries, delta_x, delta_y, delta_z))
 		
 		voxel_indices_i = np.zeros(dtype="int32", shape=(N_voxels))
 		
@@ -272,9 +259,11 @@ def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delt
 			voxel_indices_i[j] = index
 			if grain_ids[index] == 1: # still unclaimed binder
 				grain_ids[index] = i+2
+				wc_voxels += 1
 			elif grain_ids[index] > 1: # claimed, so add overlap
 				overlaps[index] += 1
 		
+		print "grain {}: WC fraction: {}, tries: {} delta: {} {} {}".format(i, wc_voxels / np.double(M3), n_tries, delta_x, delta_y, delta_z)
 		voxel_indices_i.sort()
 		voxel_indices.append(voxel_indices_i)
 
@@ -459,7 +448,7 @@ def stray_cleanup(int M, np.ndarray[int, ndim=1] grain_ids, int min_n=3, int ite
 	M3 = M2*M
 	
 	for iteration in range(iterations):
-		print("iter", iteration)
+		#print "iter", iteration
 		for ix in range(M):
 			for iy in range(M):
 				for iz in range(M):
@@ -504,7 +493,7 @@ def stray_cleanup(int M, np.ndarray[int, ndim=1] grain_ids, int min_n=3, int ite
 								if nb_ids[i] == nb_ids[j]:
 									nb_count[i] += 1
 						surrounding_id = nb_ids[nb_count.argmax()]
-						print("switch", grain_ids[gb_voxel_index], "to", surrounding_id)
+						#print "switch", grain_ids[gb_voxel_index], "to", surrounding_id
 						grain_ids[gb_voxel_index] = surrounding_id
 	
 # Monte Carlo of the Potts model with unlimited grains. gb_voxels must be consistent with grain_ids.
@@ -522,9 +511,6 @@ def make_mcp_unlim(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, nd
 	
 	M2 = M*M
 	M3 = M2*M
-	
-	# Seed rand with something
-	srand(random.randint(0, INT_MAX))
 	
 	# Set the exponentials
 	for i in range(4):
@@ -597,9 +583,6 @@ def make_mcp_overlap(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, 
 	
 	M2 = M*M
 	M3 = M2*M
-	
-	# Seed rand with something
-	srand(random.randint(0, INT_MAX))
 	
 	# Set the exponentials
 	for i in range(4):
@@ -694,9 +677,6 @@ def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, nd
 	
 	M2 = M*M
 	M3 = M2*M
-	
-	# Seed rand with something
-	srand(random.randint(0, INT_MAX))
 	
 	# Set the exponentials
 	for i in range(4):

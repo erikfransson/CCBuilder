@@ -10,8 +10,9 @@ print "Running"
 vol_frac_goal = (1 - 0.03)
 # Cube size:
 L = 5.
+np.random.seed(0)
 
-M = 50
+M = 20
 delta_x = L/M
 
 mc_steps = 100*M**3
@@ -56,7 +57,7 @@ ccb.write_hdf5('testfile_0.hdf5', 3*[M], 3*[delta_x], trunc_triangles, grain_ids
 # Compute actual volume fraction:
 grain_fraction = ccb.volume_distribution(grain_ids_0)
 print grain_fraction
-print("generated volume fraction of Co (before tweaks):", grain_fraction[0] )
+print "generated volume fraction of Co (before tweaks):", grain_fraction[0]
 
 # Make new copies to play with the unlimited monte carle potts simulation.
 if False:
@@ -129,7 +130,7 @@ if True:
     # Compute actual volume fraction:
     grain_fraction = ccb.volume_distribution(grain_ids_2)
     print grain_fraction
-    print("generated volume fraction of Co (before tweaks):", grain_fraction[0] )
+    print "generated volume fraction of Co (after tweaks):", grain_fraction[0]
 
 # Misorientation:
 #nbrList = findNeighbors(trunc_triangles,L)
