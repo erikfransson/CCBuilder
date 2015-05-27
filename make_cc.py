@@ -106,6 +106,7 @@ ccb.write_oofem('testfile_2', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2)
 
 
 # Make new copies to play with the bounded monte carlo potts simulation with stray voxel cleanup.
+# No MCP_Bound is actually run here?
 if True:
     grain_ids_3 = grain_ids_2.copy()
     gb_voxels_3 = gb_voxels_2.copy()

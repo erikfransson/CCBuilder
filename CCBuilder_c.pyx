@@ -280,6 +280,12 @@ def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delt
 	
 	return grain_ids, overlaps, voxel_indices
 
+# Returns grain properties.
+# Phases is a list of all voxels, 1 if binder, 2 if grain.
+# Good_voxels does nothing?
+# euler_angles contains the three euler angles for each voxel, 0 if the voxel is binder
+# phases_volumes contains the Co and the WC volume ( in voxel counts )
+# grain_volumes contains the volume for each grain ( in voxel counts )
 def calc_grain_prop(int M, np.ndarray[int, ndim=1] grain_ids, list trunc_triangles):
 	print "Populating grain and voxel properties"
 	

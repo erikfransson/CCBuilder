@@ -74,7 +74,7 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
                 if ig == 1: continue # Skip the Co-phase
 
                 def do_compute(ng):
-                    if ng > 1 and ig != ng:
+                    if ig != ng and ng != 1:
                         index = (min(ig, ng), max(ig, ng))
                         areas[index] += 1
                         if index not in angles:
@@ -95,7 +95,6 @@ def compute_misorientation_net(t1,t2,symmetry=[]):
 	R2=t2.rot_matrix
 	R2inv = np.linalg.inv(R2)
 	net_rotation=np.dot(R1,R2inv)
-	
 	if len(symmetry)==0:	
 		theta,axis = GT.rotmatrix_to_axisangle(net_rotation)
 		return theta*180/math.pi
@@ -103,7 +102,7 @@ def compute_misorientation_net(t1,t2,symmetry=[]):
 		angles=[]
 		for i in xrange(len(symmetry)):
 			for j in xrange(len(symmetry)):	
-				theta,axis = GT.rotmatrix_to_axisangle( np.dot( np.dot(symmetry[i],R1),np.dot(R2inv,symmetry[j]) )	)
+				theta,axis = GT.rotmatrix_to_axisangle( np.dot( np.dot(symmetry[i],R1),np.dot(R2inv,symmetry[j])))
 				angles.append(theta*180/math.pi)
 		
 		return np.min(angles)
