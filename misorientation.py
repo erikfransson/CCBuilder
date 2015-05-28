@@ -34,7 +34,7 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
 
                 if ig == 1: continue # Skip the Co-phase
 
-                def do_compute(ng):			
+                def do_compute(ng):
                     if ig != ng and ng != 1:
                         index = (min(ig, ng), max(ig, ng))
                         areas[index] += 1

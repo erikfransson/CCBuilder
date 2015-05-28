@@ -93,17 +93,6 @@ def _update_neighbors(trunc_triangles, trunc_triangles_list, neighbors):
 		nb.append(nb_i)
 	neighbors.append(nb)
 
-def volume_distribution(grain_ids):
-	ids_in_grain = [int() for x in range(max(grain_ids))]
-	for grain in grain_ids:
-		ids_in_grain[grain-1] += 1
-
-	n_voxels = len(grain_ids)
-	for ids in ids_in_grain:
-		ids /= n_voxels
-
-	return ids_in_grain
-
 def mass_fraction(vol_frac):
 	density_WC = 15.63 # g/cm3
 	density_Co = 8.90 # g/cm3
