@@ -6,6 +6,13 @@ import scipy.optimize
 import CCBuilder_c as ccb_c
 
 def prepare_triangles(vol_frac_goal, L, r_min=0.1, r_max=0.4, k_min=0.2, k_max=0.6):
+	"""	
+	Prepares random truncated_triangle objects.
+	
+	Grains are generated until the vol_frac_goal is exceeded.
+	Geometry parameters r,k,d and rotation matrix are drawn from uniform distributions.
+	Returns the list of truncated triangles sorted by size.
+	"""
 	print "Prepare triangles"
 
 	d_eq_min = 0.5
@@ -54,6 +61,13 @@ def make_neighbors(L, trunc_triangles, optimize=True):
 	return trunc_triangles_list, neighbors
 
 def optimize_midpoints(L, trunc_triangles):
+	"""
+	Optimizes the midpoints of the trunc_triangles list, ie trying to
+	minimize the overlap of grains.
+
+	Optimazation is done using scipy.optimize.minimize with the potential
+	sum_potential3_and_grad in CCBuilder_c.pyx.
+	"""
 	N = len(trunc_triangles)
 
 	print "Optimizing midpoints of " + np.str(N) + " grains."

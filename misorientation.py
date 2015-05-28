@@ -1,51 +1,12 @@
-#
-#
-# Some functions for computing the misorientation angle
-#
-#
-
 import numpy as np
 import math
 import GeometryTools as GT # Used for the rotation matrix utils.
 
 
-#
-# Finds a neighborList using circumcircle similar to how I think Sven tried to implement it.
-#
-def findNeighbors(trunc_triangles,L):
-
-	print 'Computing neighbor list'
-	nbrList=[]
-	for i,ti in enumerate(trunc_triangles):
-		nb=[]	
-		copies_i = []
-		copies_i.append(ti)
-		copies_i.extend(ti.find_periodic_copies(L))
-		for j,tj in enumerate(trunc_triangles):
-			ij_nb = False	
-			copies_j = []
-			copies_j.append(tj)
-			copies_j.extend(tj.find_periodic_copies(L))
-		
-			if ( i!=j ):
-			
-				for ic,i_copy in enumerate(copies_i):
-					for jc,j_copy in enumerate(copies_j):
-						if ( np.linalg.norm(i_copy.midpoint - j_copy.midpoint) < i_copy.circumcircle + j_copy.circumcircle):
-							ij_nb=True
-							#print i,j
-	
-			if ij_nb:
-				nb.append(j)
-		nbrList.append(np.array(nb))
-
-	return nbrList
-
 def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
     """
-    Voxel based computations
+    Computes misorientation distribution using grain_ids to find grain boundarys.
     """
-    
     print 'Computing voxel based misorientation'
     symOps=[]
     # Unity
@@ -87,10 +48,10 @@ def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
 
     return angles, areas
 
-#
-# Updated version of compute_misorientation_net
-#
 def compute_misorientation_net(t1,t2,symmetry=[]):
+	"""
+	Computes the misorientation between two truncated triangles t1 and t2.
+	"""
 	R1=t1.rot_matrix
 	R2=t2.rot_matrix
 	R2inv = np.linalg.inv(R2)
@@ -107,17 +68,46 @@ def compute_misorientation_net(t1,t2,symmetry=[]):
 		
 		return np.min(angles)
 
+#
+# Finds and returns a neighbor list using circumcircles and considering
+# periodic boundary conditions.
+#
+def findNeighbors(trunc_triangles,L):
+	print 'Computing neighbor list using circumcircles'
+	nbrList=[]
+	for i,ti in enumerate(trunc_triangles):
+		nb=[]	
+		copies_i = []
+		copies_i.append(ti)
+		copies_i.extend(ti.find_periodic_copies(L))
+		for j,tj in enumerate(trunc_triangles):
+			ij_nb = False	
+			copies_j = []
+			copies_j.append(tj)
+			copies_j.extend(tj.find_periodic_copies(L))
+		
+			if ( i!=j ):
+			
+				for ic,i_copy in enumerate(copies_i):
+					for jc,j_copy in enumerate(copies_j):
+						if ( np.linalg.norm(i_copy.midpoint - j_copy.midpoint) < i_copy.circumcircle + j_copy.circumcircle):
+							ij_nb=True
+	
+			if ij_nb:
+				nb.append(j)
+		nbrList.append(np.array(nb))
 
+	return nbrList
 
 #
-# Computes misorientation given a list of trunc_trinagles and a neighborList
-# Using the 001 method
+# Computes misorientation given a list of trunc_triangles and a neighborList
+# using the 001 method
+# This method doesnt compute the true misorientation but rather the misorientation
+# between grains z-axis.
 #
 def compute_all_misorientation_001(trunc_triangles,nbrList):
-
-	angles=[]
-	print 'Computing misorientation angles 001'
-	for i,t in enumerate(trunc_triangles):
+    angles=[]
+    for i,t in enumerate(trunc_triangles):
 		for j in xrange(len(nbrList[i])):
 		
 			v1 = np.dot(t.rot_matrix,[0,0,1])
@@ -125,12 +115,11 @@ def compute_all_misorientation_001(trunc_triangles,nbrList):
 			angle = np.min( [ math.acos(np.dot(v1,v2))* 180/math.pi, math.acos(np.dot(-v1,v2))* 180/math.pi ] ) 
 			angles.append(angle)
 	
-	return angles
+    return angles
 
 #
 # Computes misorientation given a list of trunc_triangles and a neighborList
-# Using the net rotation  M_1^-1 * M_2, with a few symmetry operations.
-# This method might not be correct.
+# Using the net rotation  function compute_misorientation_net
 #
 def compute_all_misorientation_net(trunc_triangles,nbrList):
 	symOps=[]
@@ -139,11 +128,14 @@ def compute_all_misorientation_net(trunc_triangles,nbrList):
 	# 3 fold axis around z
 	symOps.append(GT.rot_matrix([0,0,1],2*math.pi/3))
 	symOps.append(GT.rot_matrix([0,0,-1],2*math.pi/3))
+	# 2 fold axis around (sqrt(3),-1,0)
+	symOps.append(GT.rot_matrix([math.sqrt(3),-1,0],math.pi))	
 	# 2 fold axis around y
 	symOps.append(GT.rot_matrix([0,1,0],math.pi))
-	
+	# 2 fold axis around (sqrt(3),1,0)
+	symOps.append(GT.rot_matrix([math.sqrt(3),1,0],math.pi))	
+
 	angles=[]
-	print 'Computing misorientation angles net'
 	for i,t in enumerate(trunc_triangles):
 		for j in xrange(len(nbrList[i])):
 		

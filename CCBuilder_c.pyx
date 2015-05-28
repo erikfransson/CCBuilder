@@ -69,6 +69,15 @@ cdef bint binary_search(int* A, int key, int imin, int imax):
 	return False;
 
 def sum_potential3_and_grad(np.ndarray[double, ndim=1, mode="c"] r not None, double L, np.ndarray[double, ndim=1, mode="c"] circumcircle not None, np.ndarray[double, ndim=1, mode="c"] volume not None):
+	"""
+	Computes the potential U and its gradient given midpoints, circumcircles and volume.
+
+	The potential is defined as
+	U = V_i * V_j (r_ij - r_ij0)^2 / r_ij0^2   if  r_ij < r_ij0
+	where V_i is the volume of grain i, r_ij is the distance between midpoints of grain i and j
+	considering periodic boundary conditions and  r_ij0 is the sum of their circumcircles.
+	"""
+
 	cdef int N, i, j, ix, iy, iz
 	cdef double U, r_ix, r_iy, r_iz, r_jx, r_jy, r_jz, r_0, r_ijx, r_ijy, r_ijz, r_ij_norm, grad, sq
 	
@@ -286,13 +295,18 @@ def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delt
 	
 	return grain_ids, overlaps, voxel_indices
 
-# Returns grain properties.
-# Phases is a list of all voxels, 1 if binder, 2 if grain.
-# Good_voxels does nothing?
-# euler_angles contains the three euler angles for each voxel, 0 if the voxel is binder
-# phases_volumes contains the Co and the WC volume ( in voxel counts )
-# grain_volumes contains the volume for each grain ( in voxel counts )
+
 def calc_grain_prop(int M, np.ndarray[int, ndim=1] grain_ids, list trunc_triangles):
+	"""
+	Computes and returns grain and voxel properties.	
+	Done by looping over all voxels and using grain_ids to find property for each voxel.
+	
+	Phases is a list of all voxels, 1 if binder, 2 if grain.
+	Good_voxels is constant 1 ?
+	euler_angles contains the three euler angles for each voxel, 0 if the voxel is binder
+	phases_volumes contains the Co and the WC volume ( in voxel counts )
+	grain_volumes contains the volume for each grain ( in voxel counts )
+	"""
 	print "Populating grain and voxel properties"
 	
 	cdef int M3, grain_id, N, index
@@ -340,6 +354,14 @@ def calc_gb_indices(np.ndarray[char, ndim=1] gb_voxels):
 	return gb_indices
 
 def calc_surface_prop(int M, np.ndarray[int, ndim=1] grain_ids):
+	"""
+	Calculate surface voxels for all phases consistently with Dream3D, except that Dream3D does not seem to use periodic boundaries.
+	Interface and grain boundary voxels are only calculated for the WC phase.
+
+	surface_voxels contains number of contact surfaces between a voxel and its neighboring voxels.
+	gb_voxels contains the number of grain boundaries for each voxel.
+	inteface_voxels contains number of WC-Co interfaces for each voxel, only computed if voxel is WC.
+	"""
 	print "Calculating surface properties"
 	
 	cdef int M2, M3, iz, iy, ix, i, grain_id, nb_id
@@ -351,8 +373,6 @@ def calc_surface_prop(int M, np.ndarray[int, ndim=1] grain_ids):
 	cdef np.ndarray[char, ndim=1] gb_voxels = np.zeros(M3, dtype='int8')
 	cdef np.ndarray[char, ndim=1] interface_voxels = np.zeros(M3, dtype='int8')
 	
-	# Calculate surface voxels for all phases consistently with Dream3D, except that Dream3D does not seem to use periodic boundaries.
-	# Interface and grain boundary voxels are only calculated for the WC phase.
 	for iz in range(M):
 		for iy in range(M):
 			for ix in range(M):
