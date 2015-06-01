@@ -5,7 +5,7 @@ import GeometryTools as GT # Used for the rotation matrix utils.
 
 def compute_all_misorientation_voxel(trunc_triangles, grain_ids, M):
     """
-    Computes misorientation distribution using grain_ids to find grain boundarys.
+    Computes misorientation distribution using grain_ids to find grain boundaries.
     """
     print 'Computing voxel based misorientation'
     symOps=[]

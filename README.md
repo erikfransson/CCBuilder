@@ -21,7 +21,12 @@ and then you should be able to run the example
 
 
 ## Work flow
-The general work flow of CCBuilder is explained briefly below.
+The general work flow of CCBuilder is explained briefly below, assuming you imported the CCBuilder modules
+
+`import CCBuilder as ccb`
+
+`import CCBuilder_c as ccb_c`
+
 
 ### Input parameters
 There are a number of input parameters that need to be set before running CCbuilder.
@@ -30,18 +35,18 @@ There are a number of input parameters that need to be set before running CCbuil
 * System size, L
 * Grid size, M
 * Populate voxel parameters
-  * Number of trials for placing a grain onto the grid
-  * Amplitude of displacement when finding optimal place in grid
+  * Number of trials for placing a grain onto the grid, nr_tries
+  * Amplitude of displacement when finding optimal place on grid, delta
 * Monte Carlo parameters
-  * Number of MC steps
-  * Effective temperature kbT
+  * Number of MC steps, mc_steps
+  * Effective temperature, kBT
 
 
 ### Generating grains and populating voxels
 Here the process of placing triangular prism onto the grid is explained.
 First the WC grains (truncated triangles objects) are prepared by
 
-`prepare_triangles(vol_frac_goal, L)`
+`ccb.prepare_triangles(vol_frac_goal, L)`
 
 where the position, size, shape and orientation of each grain is drawn from random distributions.
 Then optionally the midpoints of the grains can be optimized, ie trying to separate them as much as possible, by 
@@ -49,17 +54,25 @@ Then optionally the midpoints of the grains can be optimized, ie trying to separ
 `ccb.optimize_midpoints(L, trunc_triangles)`
 
 which leads to better packing of the grains. 
-Next the voxels are populate meaning each voxel is assigned to a grain or the binder by
+Next the voxels are populated meaning each voxel is assigned to a grain or the binder by
 
-`voxel_indices_xyz = ccb_c.make_voxel_indices(L, M, trunc_triangles)`
+`grain_ids, overlaps, voxel_indices = ccb_c.populate_voxels(M, voxel_indices_xyz, nr_tries, delta)`
 
-`ccb_c.populate_voxels(M, voxel_indices_xyz, nr_tries, delta)`
-
-where voxel_indices_xyz contains which voxels lies inside each grain and the call populate_voxels will place the grains onto the grid. The algorithm makes N tries to insert a grain around its midpoint position. The position which give rise to minimum overlap with the other grains is chosen. 
+The algorithm makes nr_tries tries to insert a grain onto the grid at its midpoint position plus a random displacement. The position which give rise to minimum overlap with the other grains is chosen.  
 
 
 ### Corrections of unphysical artefacts
-After placing the grains it is possible to run a Potts model simulation of the structure using the Metropolis algorithm. The simulation is mainly done to correct for unphysical artefacts in the microstructures, most notably places where one grain protrudes into another one.
+After the voxels are populated with grains there will be some stray voxels due to discretization errors. These voxels can be cleaned up by running
+
+`ccb_c.stray_cleanup(M, grain_ids)`
+
+where for instance if a voxel beloning to grain 2 and is fully surronded by voxels beloning to grain 3 then it is assigned to grain 3. 
+NOTE !! Perhaps stray_cleanup is meant to be ran after the MCP.
+
+
+
+
+It is possible to run a Potts model simulation of the structure using the Metropolis algorithm. The simulation is mainly done to correct for unphysical artefacts in the microstructures, most notably places where one grain protrudes into another one.
 
 In order to run an Monte carlo potts simulation the grain boundary voxels are first found by
 
@@ -67,32 +80,27 @@ In order to run an Monte carlo potts simulation the grain boundary voxels are fi
 
 the surface and interface voxels are not needed for the MCP run but are useful when analyzing the final structure (will be discussed more in Outputs and results).
 
+In the MCP algorithm a grain boundary voxel is chosen at random and the grain_id of its neighbors are checked. The id of the neighboring WC grains are inserted into a set and the chosen voxels id is changed to a random id from the set. This change will lead to a total grain boundary area change dA and the change is accepted with a probability of min{ 1 , exp(-dA/kT )}. 
+
+NOTE !! If dA = 0 then the probability is 0.5 ( set explicitly in the code ) , this should probably be 1.0 instead??
+
 There are three variations of the monte carlo potts simulation available. 
 
 * make_mcp_unlim
 * make_mcp_overlap
 * make_mcp_bound
 
-In the MCP algorithm a grain boundary voxel is chosen at random and the grain_id of its neighbors are checked. The id of the neighboring WC grains are inserted into a set and the chosen voxels id is changed to a random id from the set. This change will lead to a total grain boundary area change dA and the change is accepted with a probability of min{ 1 , exp(-dA/kT )}. 
+The unlimited version just runs the algorithm above without any constraints. In this method there is no limit to the growth of individual grains and therefore large movements of the grain boundaries can take place.
 
-NOTE !! If dA = 0 then the probability is 0.5 ( set explicitly in the code ) , this should probably be 1.0 instead?? !! NOTE
+In the overlap variation a random grain boundary voxel that is also an overlap voxel is chosen. This means grain boundaries can only change where two grains overlap. For high WC fraction this might not be very useful due to overlap being everywhere.
+
+Another way to limit boundary movement is the bound method where grains are limited to their original shape describe by voxel_indices.
 
 
-+++ calc_surface_prop in order to otain GB_voxels for MCP run.
-
-+++ Optional stray_cleanup, what does this function do?
-
-+++ Monte Carlo potts simulations
-
-+++++ The different variations of MCP, unlim bound overlap
 
 ### Outputs and results
-
-
-+++ calc_grain_prop to obtain some data to be written to output files
-++++ calc_surface_prop to get obtain dream3D data
-+++ perhaps show how to compute vol_fracs, contiguity and misorientation given the output variables.
+After the structure is generated you can calculate some intersting measurments of the structure such as volume fractions, grain size distribution, contiguity and misorientation distribution. Examples of this can be found in `make_cc.py`
 
 The function `ccb.write_hdf5` writes the simulation data to an HDF5 file using the same format as Dream3D uses.
-
+There is also `ccb.write_oofem` which writes the results in oofem format.
 

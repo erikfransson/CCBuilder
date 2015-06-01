@@ -8,22 +8,21 @@ import matplotlib.pyplot as plt
 from misorientation import *
 
 print "Running"
-vol_frac_goal = (1 - 0.178)
+vol_frac_goal = 1.0
 # Cube size:
 L = 5.
 np.random.seed(0)
 
-M = 100
+M = 50
 delta_x = L/M
 
 mc_steps = 100*M**3
 kBT = 0.5
 
-nr_tries = 2500
 
 # Move max 0.75 mu in any direction
 delta = M #int(0.75 / delta_x)
-nr_tries = 2500
+nr_tries = 1000
 
 # to avoid confusion
 vol_frac_goal = np.double(vol_frac_goal)
@@ -105,7 +104,7 @@ ccb.write_oofem('testfile_2', 3*[M], 3*[delta_x], trunc_triangles, grain_ids_2)
 
 # Make new copies to play with the bounded monte carlo potts simulation with stray voxel cleanup.
 # No MCP_Bound is actually run here?
-if True:
+if False:
     grain_ids_3 = grain_ids_2.copy()
     gb_voxels_3 = gb_voxels_2.copy()
 
@@ -137,12 +136,19 @@ if True:
 #print angles_001
 #angles_net = compute_all_misorientation_net(trunc_triangles,nbrList)
 
-angles, areas = compute_all_misorientation_voxel(trunc_triangles, grain_ids_3, [M]*3)
+angles, areas = compute_all_misorientation_voxel(trunc_triangles, grain_ids_2, [M]*3)
 
 all_angles = []
 for grains, angle in angles.iteritems():
 	area = areas[grains]
 	all_angles.extend(area * [angle])
 
-plt.hist(all_angles, bins=30)
-plt.show()
+if all_angles:
+	num_bins = 40
+	plt.rcParams.update({'font.size': 20})
+	fig=plt.figure(num=None, figsize=(12, 7), facecolor='w', edgecolor='k')
+	n, bins, patches = plt.hist(all_angles, num_bins, normed=1, facecolor='blue', alpha=0.5)
+	plt.xlabel('Angle')
+	plt.ylabel('Probability')
+	plt.show()
+

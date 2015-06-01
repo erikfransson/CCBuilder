@@ -106,6 +106,10 @@ def sum_potential3_and_grad(np.ndarray[double, ndim=1, mode="c"] r not None, dou
 	return U, U_grad
 
 def make_voxel_indices(double L, int M, list trunc_triangles):
+	"""
+	Returns a list of voxels laying inside each grain considering periodic boundary conditions.
+	The list contains the x,y,z index for each voxel.
+	"""
 	print "Making a list of voxel indices (ix,iy,iz) for each grain."
 	
 	cdef:
@@ -180,8 +184,19 @@ def make_voxel_indices(double L, int M, list trunc_triangles):
 	
 	return voxel_indices
 
-# Make N_tries attempts to place each grain with minimum overlap with existing grains. The position is varied randomly within [-delta,+delta] from the original position. The function will not touch the list voxel_indices_xyz and it will hence not be altered by the attempts. Returns a sorted list of indices (which is not separated in x,y,z components) to use in make_mcp_bound. The indices of the returned list correspond to optimal grain positions.
+
 def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delta, double goal_fraction):
+	"""
+	Make N_tries attempts to place each grain with minimum overlap with existing grains.
+	The position is varied randomly within [-delta,+delta] from the original position. 	
+	voxel_indices_xyz is found by calling make_voxel_indices.
+	The first grains will occupy their voxel_indices_xyz and the later ones will have to adapt and be "deformed".
+		
+	Returns a sorted list of indices (which is not separated in x,y,z components) to use in make_mcp_bound.
+	The indices of the returned list correspond to optimal grain positions.
+	The midpoints of trunc_triangles are updated.
+	"""
+	
 	print "Populating voxels"
 
 	voxel_indices_xyz = make_voxel_indices(L, M, trunc_triangles)
@@ -276,7 +291,9 @@ def populate_voxels(int M, double L, list trunc_triangles, int N_tries, int delt
 		voxel_indices.append(voxel_indices_i)
 
 		# Move the truncated triangle to the right position as well:
-		trunc_triangles[i].midpoint += [delta_x, delta_y, delta_z]
+		# This is currently not working
+		# needs to be wrapped using pbc, double_mod(midpoint,L).
+		trunc_triangles[i].midpoint += [np.double(delta_x)*L/(M-1), np.double(delta_y)*L/(M-1), np.double(delta_z)*L/(M-1)]
 		
 		print "grain {}: WC fraction: {}, tries: {} delta: {} {} {}".format(i, wc_voxels / np.double(M3), n_tries, delta_x, delta_y, delta_z)
 
@@ -297,7 +314,7 @@ def calc_grain_prop(int M, np.ndarray[int, ndim=1] grain_ids, list trunc_triangl
 	
 	Phases is a list of all voxels, 1 if binder, 2 if grain.
 	Good_voxels is constant 1 ?
-	euler_angles contains the three euler angles for each voxel, 0 if the voxel is binder
+	euler_angles contains the three euler angles for each voxel(euler angles for the grain the voxel belongs to), 0 if the voxel is binder
 	phases_volumes contains the Co and the WC volume ( in voxel counts )
 	grain_volumes contains the volume for each grain ( in voxel counts )
 	"""
@@ -463,8 +480,16 @@ def calc_mli(int M, double L, np.ndarray[int, ndim=1] grain_ids):
 	
 	return cont, d_WC, d_Co
 
-# Cleanup of stray voxels that appear due to discretization errors.
+
 def stray_cleanup(int M, np.ndarray[int, ndim=1] grain_ids, int min_n=3, int iterations=3):
+	"""
+	Cleanup of stray voxels that appear due to discretization errors.
+	
+	Loops over all voxels iterations number of times and looks if each voxels have atleast min_n
+	neighbors beloning to the same grain as itself. If not the voxel is assigned to the grain ( or binder )
+	that occurs most often in its neighbors.  
+	"""
+	
 	print "Stray voxel cleanup"
 	
 	cdef:
@@ -527,9 +552,15 @@ def stray_cleanup(int M, np.ndarray[int, ndim=1] grain_ids, int min_n=3, int ite
 						#print "switch", grain_ids[gb_voxel_index], "to", surrounding_id
 						grain_ids[gb_voxel_index] = surrounding_id
 	
-# Monte Carlo of the Potts model with unlimited grains. gb_voxels must be consistent with grain_ids.
+
 def make_mcp_unlim(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, int steps, double kBT):
-	print "Making Monte Carlo steps"
+	"""
+	Monte Carlo of the Potts model with unlimited grains. gb_voxels must be consistent with grain_ids.
+	
+	Choses a random grain boundary voxel and changes it to a random neighboring grain with probability
+	min{1,exp(-dA/kBT)} , where dA is the change in total grain boundary area. This is repeated steps times.
+	"""
+	print "Making Monte Carlo steps using unlimited method"
 	
 	cdef:
 		int M2, M3, i, step, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz, new_id, sum_delta_A, nr_diff_ids
@@ -599,9 +630,16 @@ def make_mcp_unlim(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, nd
 				for i in range(6):
 					gb_voxels[nb_indices[i]] += delta_A[i]
 
-# Monte Carlo of the Potts model where the grains are bound to regions where two or more grains overlap. Quite useless since overlaps tend to be everywhere at high WC fraction. gb_voxels must be consistent with grain_ids.
+
 def make_mcp_overlap(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, np.ndarray[char, ndim=1] overlaps, int steps, double kBT):
-	print "Making Monte Carlo steps"
+	"""
+	Monte Carlo of the Potts model using overlap method. gb_voxels must be consistent with grain_ids.
+	
+	Very similar to the unlim method but here a grain boundary voxel that is also an overlap voxel is randomly chosen.
+	This means that only overlap voxel can be changed, ie movement of grain boundaries is limited.
+	Quite useless since overlaps tend to be everywhere at high WC fraction.
+	"""	
+	print "Making Monte Carlo steps using overlap method"
 	
 	cdef:
 		int M2, M3, i, step, gb_voxel_index, gb_voxel_id, nb_id, ix, iy, iz, new_id, sum_delta_A, nr_diff_ids
@@ -673,6 +711,12 @@ def make_mcp_overlap(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, 
 
 # Monte Carlo of the Potts model where the grains are bound to their original truncated triangle shape. gb_voxels must be consistent with grain_ids.
 def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, list voxel_indices, long long steps, double kBT):
+	"""
+	Monte Carlo of the Potts model with bounded grains. gb_voxels must be consistent with grain_ids.
+	
+	Choses a random grain boundary voxel and changes it to a random neighboring grain with probability
+	min{1,exp(-dA/kBT)} , where dA is the change in total grain boundary area. This is repeated steps times.
+	"""
 	print "Making Monte Carlo steps"
 	
 	cdef:
