@@ -713,9 +713,7 @@ def make_mcp_overlap(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, 
 def make_mcp_bound(int M, np.ndarray[int, ndim=1] grain_ids, np.ndarray[char, ndim=1] gb_voxels, list voxel_indices, long long steps, double kBT):
 	"""
 	Monte Carlo of the Potts model with bounded grains. gb_voxels must be consistent with grain_ids.
-	
-	Choses a random grain boundary voxel and changes it to a random neighboring grain with probability
-	min{1,exp(-dA/kBT)} , where dA is the change in total grain boundary area. This is repeated steps times.
+	Similar to unlim method but grains are bounded by voxel_indices.
 	"""
 	print "Making Monte Carlo steps"
 	

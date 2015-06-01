@@ -103,6 +103,9 @@ def volume_to_eq_d(volume):
 
 
 def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
+	"""
+	Writes output data in oofem format.
+	"""
 	f = open(filename + ".in", "w")
 
 	ids_in_grain = [list() for x in range(max(grain_ids))]
@@ -250,6 +253,9 @@ def write_oofem(filename, M, spacing, trunc_triangles, grain_ids):
 
 
 def write_hdf5(filename, M, spacing, trunc_triangles, grain_ids, phases, good_voxels, euler_angles, surface_voxels=None, gb_voxels=None, interface_voxels=None, overlaps=None):
+	"""
+	Writes output data in Dream3D format.
+	"""
 	f = h5py.File(filename, "w")
 
 	grp_voxel_data = f.create_group("VoxelDataContainer")

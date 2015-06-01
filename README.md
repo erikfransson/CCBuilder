@@ -66,7 +66,6 @@ After the voxels are populated with grains there will be some stray voxels due t
 
 `ccb_c.stray_cleanup(M, grain_ids)`
 
-where for instance if a voxel beloning to grain 2 and is fully surronded by voxels beloning to grain 3 then it is assigned to grain 3. 
 NOTE !! Perhaps stray_cleanup is meant to be ran after the MCP.
 
 
@@ -78,7 +77,7 @@ In order to run an Monte carlo potts simulation the grain boundary voxels are fi
 
 `surface_voxels, gb_voxels, interface_voxels = ccb_c.calc_surface_prop(M, grain_ids_1)`
 
-the surface and interface voxels are not needed for the MCP run but are useful when analyzing the final structure (will be discussed more in Outputs and results).
+the surface and interface voxels are not needed for the MCP run but are useful when analyzing the final structure.
 
 In the MCP algorithm a grain boundary voxel is chosen at random and the grain_id of its neighbors are checked. The id of the neighboring WC grains are inserted into a set and the chosen voxels id is changed to a random id from the set. This change will lead to a total grain boundary area change dA and the change is accepted with a probability of min{ 1 , exp(-dA/kT )}. 
 
@@ -86,9 +85,9 @@ NOTE !! If dA = 0 then the probability is 0.5 ( set explicitly in the code ) , t
 
 There are three variations of the monte carlo potts simulation available. 
 
-* make_mcp_unlim
-* make_mcp_overlap
-* make_mcp_bound
+* ccb_c.make_mcp_unlim
+* ccb_c.make_mcp_overlap
+* ccb_c.make_mcp_bound
 
 The unlimited version just runs the algorithm above without any constraints. In this method there is no limit to the growth of individual grains and therefore large movements of the grain boundaries can take place.
 
